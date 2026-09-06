@@ -114,20 +114,20 @@ export function GrowthChart({ series, height = 360 }: GrowthChartProps) {
   }, [dates, len]);
 
   return (
-    <div className="w-full bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-xl">
+    <div className="w-full bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-sm">
       {/* Header controls */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
         <div>
-          <h3 className="text-base font-semibold text-white tracking-wide">Portfolio Growth</h3>
-          <p className="text-xs text-slate-400">Growth of an initial investment of $10,000</p>
+          <h3 className="text-base font-semibold text-slate-900 tracking-tight">Portfolio Growth</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Growth of an initial investment of $10,000</p>
         </div>
 
-        <div className="flex items-center gap-2 bg-slate-950/80 p-1 rounded-lg border border-slate-800 text-xs">
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200/70 text-xs">
           <button
             type="button"
             onClick={() => setIsLog(false)}
-            className={`px-3 py-1 rounded transition-all font-medium ${
-              !isLog ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+            className={`px-3 py-1 rounded-md transition-all font-medium cursor-pointer ${
+              !isLog ? 'bg-white text-blue-700 shadow-2xs font-semibold' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             Linear
@@ -135,8 +135,8 @@ export function GrowthChart({ series, height = 360 }: GrowthChartProps) {
           <button
             type="button"
             onClick={() => setIsLog(true)}
-            className={`px-3 py-1 rounded transition-all font-medium ${
-              isLog ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+            className={`px-3 py-1 rounded-md transition-all font-medium cursor-pointer ${
+              isLog ? 'bg-white text-blue-700 shadow-2xs font-semibold' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             Logarithmic
@@ -149,7 +149,7 @@ export function GrowthChart({ series, height = 360 }: GrowthChartProps) {
         {series.map((s) => (
           <div key={s.id} className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
-            <span className="text-slate-300 font-medium">{s.name}</span>
+            <span className="text-slate-700 font-medium">{s.name}</span>
           </div>
         ))}
       </div>
@@ -179,8 +179,8 @@ export function GrowthChart({ series, height = 360 }: GrowthChartProps) {
                   y1={y}
                   x2={width - padRight}
                   y2={y}
-                  stroke="rgba(255,255,255,0.06)"
-                  strokeDasharray="4 4"
+                  stroke="#e2e8f0"
+                  strokeDasharray="3 3"
                 />
                 <text
                   x={padLeft - 10}
@@ -244,9 +244,9 @@ export function GrowthChart({ series, height = 360 }: GrowthChartProps) {
                     key={s.id}
                     cx={getX(hoverIndex)}
                     cy={getY(pt.value)}
-                    r="4"
+                    r="4.5"
                     fill={s.color}
-                    stroke="#0f172a"
+                    stroke="#ffffff"
                     strokeWidth="2"
                   />
                 );
@@ -258,12 +258,12 @@ export function GrowthChart({ series, height = 360 }: GrowthChartProps) {
         {/* Floating Tooltip Box */}
         {hoverIndex !== null && (
           <div
-            className="absolute top-4 left-20 bg-slate-950/95 border border-slate-700/80 rounded-lg p-2.5 shadow-2xl text-xs z-20 pointer-events-none"
+            className="absolute top-4 bg-white border border-slate-200/90 rounded-lg p-3 shadow-lg text-xs z-20 pointer-events-none"
             style={{
               left: `${Math.min(75, Math.max(15, (getX(hoverIndex) / width) * 100))}%`,
             }}
           >
-            <div className="font-semibold text-slate-300 border-b border-slate-800 pb-1 mb-1.5 font-mono">
+            <div className="font-semibold text-slate-900 border-b border-slate-100 pb-1 mb-1.5 font-mono">
               {dates[hoverIndex]}
             </div>
             <div className="space-y-1">
@@ -272,11 +272,11 @@ export function GrowthChart({ series, height = 360 }: GrowthChartProps) {
                 if (!pt) return null;
                 return (
                   <div key={s.id} className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-1.5 text-slate-300">
+                    <span className="flex items-center gap-1.5 text-slate-600">
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
                       {s.name}:
                     </span>
-                    <span className="font-mono font-semibold text-white">
+                    <span className="font-mono font-semibold text-slate-900">
                       ${Math.round(pt.value).toLocaleString()}
                     </span>
                   </div>

@@ -12,11 +12,10 @@ import {
   Grid,
   TrendingUp,
   BookmarkCheck,
-  ShieldCheck,
   Zap,
-  Layers,
-  Sparkles,
+  X,
 } from 'lucide-react';
+import { useNav } from '@/context/NavContext';
 
 interface NavSection {
   title: string;
@@ -36,13 +35,14 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'Portfolio Lab',
+    title: 'Portfolio',
     items: [
       { href: '/backtest', label: 'Backtest & Compare', icon: LineChart },
+      { href: '/saved', label: 'Saved Portfolios', icon: BookmarkCheck },
     ],
   },
   {
-    title: 'Quantitative Analysis',
+    title: 'Analysis',
     items: [
       { href: '/optimization', label: 'Optimization & Frontier', icon: PieChart },
       { href: '/monte-carlo', label: 'Monte Carlo & Longevity', icon: Shuffle },
@@ -53,44 +53,49 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Strategies',
     items: [
-      { href: '/tactical', label: 'Tactical & Momentum Lab', icon: Compass },
-    ],
-  },
-  {
-    title: 'Library',
-    items: [
-      { href: '/saved', label: 'Saved Experiments', icon: BookmarkCheck },
+      { href: '/tactical', label: 'Tactical Strategy Lab', icon: Compass },
     ],
   },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { mobileOpen, closeMobile } = useNav();
 
-  return (
-    <aside className="w-60 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none">
+  const renderNavContent = () => (
+    <>
       {/* Brand Header */}
-      <div className="h-14 px-5 border-b border-slate-800/80 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center shadow-sm shadow-indigo-950">
-            <Zap className="w-3.5 h-3.5 text-white fill-white" />
+      <div className="h-14 px-5 border-b border-slate-100 flex items-center justify-between shrink-0">
+        <Link href="/" onClick={closeMobile} className="flex items-center gap-2.5 group">
+          <div className="w-7.5 h-7.5 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-500/30">
+            <Zap className="w-4 h-4 fill-white" />
           </div>
           <div>
-            <span className="font-bold text-sm tracking-tight text-white block">
+            <span className="font-bold text-sm tracking-tight text-slate-900 block leading-tight">
               QuantPulse
             </span>
-            <span className="text-[9px] text-slate-500 font-mono block -mt-0.5 tracking-wider uppercase">
-              Analytics Terminal
+            <span className="text-[10px] text-slate-500 font-mono block tracking-wider uppercase">
+              Portfolio Terminal
             </span>
           </div>
         </Link>
+        {mobileOpen && (
+          <button
+            type="button"
+            onClick={closeMobile}
+            className="md:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
+            aria-label="Close navigation menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Navigation Sections */}
       <div className="p-3 space-y-5 overflow-y-auto flex-1">
         {NAV_SECTIONS.map((section) => (
           <div key={section.title}>
-            <div className="px-2 mb-1.5 text-[10px] font-mono uppercase tracking-wider text-slate-500 font-medium">
+            <div className="px-2.5 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
               {section.title}
             </div>
             <div className="space-y-0.5">
@@ -102,18 +107,19 @@ export function Sidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center justify-between h-9 px-2.5 rounded-lg text-xs transition-colors ${
+                    onClick={closeMobile}
+                    className={`flex items-center justify-between h-9 px-2.5 rounded-lg text-xs transition-all ${
                       isActive
-                        ? 'bg-indigo-600/10 text-indigo-300 font-semibold border-l-2 border-indigo-500 shadow-sm'
-                        : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/70 font-normal'
+                        ? 'bg-blue-50 text-blue-700 font-semibold shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70 font-medium'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-indigo-400' : 'text-slate-500'}`} />
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
                       <span className="truncate">{item.label}</span>
                     </div>
                     {item.badge && (
-                      <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-indigo-500/20 text-indigo-300">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-100 text-blue-700 font-medium">
                         {item.badge}
                       </span>
                     )}
@@ -126,15 +132,40 @@ export function Sidebar() {
       </div>
 
       {/* Footer System Status */}
-      <div className="p-3 border-t border-slate-800/80 bg-slate-950">
-        <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
+      <div className="p-3 border-t border-slate-100 bg-slate-50/60 shrink-0">
+        <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
           <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-slate-300 font-medium">Engine Active</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span className="font-medium text-slate-700">Online & Active</span>
           </div>
-          <span className="font-mono text-[10px] text-slate-500">v1.2</span>
+          <span className="font-mono text-[10px] text-slate-400">v2.0</span>
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop Sticky Sidebar */}
+      <aside className="hidden md:flex w-64 bg-white border-r border-slate-200/80 flex-col justify-between shrink-0 h-screen sticky top-0 select-none">
+        {renderNavContent()}
+      </aside>
+
+      {/* Mobile Slide-Over Drawer */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity"
+            onClick={closeMobile}
+            aria-hidden="true"
+          />
+          {/* Drawer panel */}
+          <div className="relative w-72 max-w-[80vw] bg-white h-full shadow-2xl flex flex-col justify-between z-10 select-none animate-in slide-in-from-left duration-200">
+            {renderNavContent()}
+          </div>
+        </div>
+      )}
+    </>
   );
 }

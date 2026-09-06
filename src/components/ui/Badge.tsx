@@ -18,11 +18,11 @@ export const Badge: React.FC<BadgeProps> = ({
   }[size];
 
   const variantStyles = {
-    neutral: 'bg-slate-800/80 text-slate-300 border border-slate-700/60',
-    success: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30',
-    danger: 'bg-rose-500/10 text-rose-400 border border-rose-500/30',
-    warning: 'bg-amber-500/10 text-amber-300 border border-amber-500/30',
-    info: 'bg-sky-500/10 text-sky-400 border border-sky-500/30',
+    neutral: 'bg-slate-100 text-slate-700 border border-slate-200',
+    success: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+    danger: 'bg-red-50 text-red-700 border border-red-200',
+    warning: 'bg-amber-50 text-amber-700 border border-amber-200',
+    info: 'bg-blue-50 text-blue-700 border border-blue-200',
   }[variant];
 
   return (

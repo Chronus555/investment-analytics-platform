@@ -10,8 +10,7 @@ import { solveRiskParity, RiskParityResult } from '@/analytics/riskParity';
 import { calculateCovarianceMatrix, calculateMean } from '@/analytics/statistics';
 import { CURATED_SECURITIES, CURATED_RETURNS } from '@/data/curatedData';
 import { FrontierChart } from '@/components/charts/FrontierChart';
-import { Sliders, PieChart, ShieldAlert, CheckCircle2, Zap } from 'lucide-react';
-import { PageHeader, SectionHeader } from '@/components/ui/PageHeader';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { formatPercent, formatRatio } from '@/utils/formatters';
@@ -126,15 +125,15 @@ export default function OptimizationPage() {
       />
 
       {/* Universe Selection & Constraints */}
-      <Card className="shadow-md">
+      <Card className="shadow-xs border-slate-200 bg-white">
         <CardHeader>
           <div>
-            <CardTitle>Asset Universe & Allocation Constraints</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-slate-900">Asset Universe & Allocation Constraints</CardTitle>
+            <CardDescription className="text-slate-500">
               Toggle available assets and adjust single-asset concentration limits
             </CardDescription>
           </div>
-          <span className="text-xs text-slate-400 font-mono">
+          <span className="text-xs text-slate-500 font-mono">
             {selectedSymbols.length} Assets Active
           </span>
         </CardHeader>
@@ -149,25 +148,25 @@ export default function OptimizationPage() {
                   key={sec.symbol}
                   type="button"
                   onClick={() => toggleSymbol(sec.symbol)}
-                  className={`h-8 px-3 rounded-lg text-xs font-mono font-medium transition-colors flex items-center gap-1.5 ${
+                  className={`h-8 px-3 rounded-lg text-xs font-mono font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
                     isSelected
-                      ? 'bg-indigo-600/15 text-indigo-300 border border-indigo-500/40 shadow-sm'
-                      : 'bg-slate-950 text-slate-400 border border-slate-800 hover:border-slate-700 hover:text-slate-200'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-xs font-semibold'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
                   <span className="font-bold">{sec.symbol}</span>
-                  <span className="text-[10px] text-slate-500 font-sans hidden sm:inline">({sec.assetClass})</span>
+                  <span className="text-[10px] text-slate-400 font-sans hidden sm:inline">({sec.assetClass})</span>
                 </button>
               );
             })}
           </div>
 
           {/* Constraints Sliders */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 text-xs border-t border-slate-800/80">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 text-xs border-t border-slate-100">
             <div>
-              <div className="flex justify-between mb-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-400 font-medium">
+              <div className="flex justify-between mb-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-600 font-semibold">
                 <span>Max Single Asset Weight</span>
-                <span className="text-slate-200">{formatPercent(maxWeight, 0)}</span>
+                <span className="text-slate-900 font-bold">{formatPercent(maxWeight, 0)}</span>
               </div>
               <input
                 type="range"
@@ -176,14 +175,14 @@ export default function OptimizationPage() {
                 step="0.05"
                 value={maxWeight}
                 onChange={(e) => setMaxWeight(parseFloat(e.target.value))}
-                className="w-full h-1.5 bg-slate-800 rounded accent-indigo-500 cursor-pointer"
+                className="w-full h-1.5 bg-slate-200 rounded accent-blue-600 cursor-pointer"
               />
             </div>
 
             <div>
-              <div className="flex justify-between mb-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-400 font-medium">
+              <div className="flex justify-between mb-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-600 font-semibold">
                 <span>Min Single Asset Weight</span>
-                <span className="text-slate-200">{formatPercent(minWeight, 0)}</span>
+                <span className="text-slate-900 font-bold">{formatPercent(minWeight, 0)}</span>
               </div>
               <input
                 type="range"
@@ -192,14 +191,14 @@ export default function OptimizationPage() {
                 step="0.01"
                 value={minWeight}
                 onChange={(e) => setMinWeight(parseFloat(e.target.value))}
-                className="w-full h-1.5 bg-slate-800 rounded accent-indigo-500 cursor-pointer"
+                className="w-full h-1.5 bg-slate-200 rounded accent-blue-600 cursor-pointer"
               />
             </div>
 
             <div>
-              <div className="flex justify-between mb-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-400 font-medium">
+              <div className="flex justify-between mb-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-600 font-semibold">
                 <span>Assumed Risk-Free Rate</span>
-                <span className="text-slate-200">{formatPercent(riskFreeRate, 1)}</span>
+                <span className="text-slate-900 font-bold">{formatPercent(riskFreeRate, 1)}</span>
               </div>
               <input
                 type="range"
@@ -208,7 +207,7 @@ export default function OptimizationPage() {
                 step="0.005"
                 value={riskFreeRate}
                 onChange={(e) => setRiskFreeRate(parseFloat(e.target.value))}
-                className="w-full h-1.5 bg-slate-800 rounded accent-indigo-500 cursor-pointer"
+                className="w-full h-1.5 bg-slate-200 rounded accent-blue-600 cursor-pointer"
               />
             </div>
           </div>
@@ -227,36 +226,36 @@ export default function OptimizationPage() {
       {/* Optimal Allocations Comparison */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Tangency / Max Sharpe */}
-        <Card className="shadow-md">
+        <Card className="shadow-xs border-slate-200 bg-white">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-              <CardTitle>Max Sharpe (Tangency)</CardTitle>
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+              <CardTitle className="text-slate-900">Max Sharpe (Tangency)</CardTitle>
             </div>
             <Badge variant="success">Sharpe {formatRatio(maxSharpe.sharpeRatio, 2)}</Badge>
           </CardHeader>
           <div className="p-4 sm:p-5 space-y-3">
-            <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
+            <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-slate-50 p-2.5 rounded-lg border border-slate-200">
               <div>
-                <span className="text-[10px] text-slate-500 block uppercase">Exp Return</span>
-                <span className="font-semibold text-emerald-400">{formatPercent(maxSharpe.return, 2)}</span>
+                <span className="text-[10px] text-slate-500 block uppercase font-sans">Exp Return</span>
+                <span className="font-semibold text-emerald-600">{formatPercent(maxSharpe.return, 2)}</span>
               </div>
               <div>
-                <span className="text-[10px] text-slate-500 block uppercase">Annual Vol</span>
-                <span className="font-semibold text-slate-200">{formatPercent(maxSharpe.volatility, 2)}</span>
+                <span className="text-[10px] text-slate-500 block uppercase font-sans">Annual Vol</span>
+                <span className="font-semibold text-slate-800">{formatPercent(maxSharpe.volatility, 2)}</span>
               </div>
             </div>
 
             <div className="space-y-1.5 pt-1">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-semibold font-sans">
                 Allocations
               </div>
               {Object.entries(maxSharpe.weights)
                 .filter(([_, w]) => w > 0.001)
                 .map(([sym, w]) => (
                   <div key={sym} className="flex justify-between items-center text-xs">
-                    <span className="font-mono font-medium text-slate-300">{sym}</span>
-                    <span className="font-mono font-semibold text-emerald-300">{formatPercent(w, 1)}</span>
+                    <span className="font-mono font-medium text-slate-700">{sym}</span>
+                    <span className="font-mono font-semibold text-emerald-700">{formatPercent(w, 1)}</span>
                   </div>
                 ))}
             </div>
@@ -264,36 +263,36 @@ export default function OptimizationPage() {
         </Card>
 
         {/* Min Variance */}
-        <Card className="shadow-md">
+        <Card className="shadow-xs border-slate-200 bg-white">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-indigo-400" />
-              <CardTitle>Minimum Volatility</CardTitle>
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+              <CardTitle className="text-slate-900">Minimum Volatility</CardTitle>
             </div>
             <Badge variant="info">Vol {formatPercent(minVar.volatility, 1)}</Badge>
           </CardHeader>
           <div className="p-4 sm:p-5 space-y-3">
-            <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
+            <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-slate-50 p-2.5 rounded-lg border border-slate-200">
               <div>
-                <span className="text-[10px] text-slate-500 block uppercase">Exp Return</span>
-                <span className="font-semibold text-indigo-400">{formatPercent(minVar.return, 2)}</span>
+                <span className="text-[10px] text-slate-500 block uppercase font-sans">Exp Return</span>
+                <span className="font-semibold text-blue-600">{formatPercent(minVar.return, 2)}</span>
               </div>
               <div>
-                <span className="text-[10px] text-slate-500 block uppercase">Sharpe</span>
-                <span className="font-semibold text-slate-200">{formatRatio(minVar.sharpeRatio, 2)}</span>
+                <span className="text-[10px] text-slate-500 block uppercase font-sans">Sharpe</span>
+                <span className="font-semibold text-slate-800">{formatRatio(minVar.sharpeRatio, 2)}</span>
               </div>
             </div>
 
             <div className="space-y-1.5 pt-1">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-semibold font-sans">
                 Allocations
               </div>
               {Object.entries(minVar.weights)
                 .filter(([_, w]) => w > 0.001)
                 .map(([sym, w]) => (
                   <div key={sym} className="flex justify-between items-center text-xs">
-                    <span className="font-mono font-medium text-slate-300">{sym}</span>
-                    <span className="font-mono font-semibold text-indigo-300">{formatPercent(w, 1)}</span>
+                    <span className="font-mono font-medium text-slate-700">{sym}</span>
+                    <span className="font-mono font-semibold text-blue-700">{formatPercent(w, 1)}</span>
                   </div>
                 ))}
             </div>
@@ -301,36 +300,36 @@ export default function OptimizationPage() {
         </Card>
 
         {/* Risk Parity */}
-        <Card className="shadow-md">
+        <Card className="shadow-xs border-slate-200 bg-white">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-              <CardTitle>Equal Risk Parity (ERC)</CardTitle>
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+              <CardTitle className="text-slate-900">Equal Risk Parity (ERC)</CardTitle>
             </div>
             <Badge variant="warning">Vol {formatPercent(riskParity.portfolioVolatility, 1)}</Badge>
           </CardHeader>
           <div className="p-4 sm:p-5 space-y-3">
-            <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
+            <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-slate-50 p-2.5 rounded-lg border border-slate-200">
               <div>
-                <span className="text-[10px] text-slate-500 block uppercase">Total Vol</span>
-                <span className="font-semibold text-amber-400">{formatPercent(riskParity.portfolioVolatility, 2)}</span>
+                <span className="text-[10px] text-slate-500 block uppercase font-sans">Total Vol</span>
+                <span className="font-semibold text-amber-600">{formatPercent(riskParity.portfolioVolatility, 2)}</span>
               </div>
               <div>
-                <span className="text-[10px] text-slate-500 block uppercase">Risk Budget</span>
-                <span className="font-semibold text-slate-200">Equal (1/N)</span>
+                <span className="text-[10px] text-slate-500 block uppercase font-sans">Risk Budget</span>
+                <span className="font-semibold text-slate-800">Equal (1/N)</span>
               </div>
             </div>
 
             <div className="space-y-1.5 pt-1">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-semibold font-sans">
                 Allocations & Risk Contrib
               </div>
               {riskParity.assets.map((a) => (
                 <div key={a.symbol} className="flex justify-between items-center text-xs">
-                  <span className="font-mono font-medium text-slate-300">{a.symbol}</span>
+                  <span className="font-mono font-medium text-slate-700">{a.symbol}</span>
                   <div className="flex items-center gap-2 font-mono">
-                    <span className="font-semibold text-slate-200">{formatPercent(a.weight, 1)}</span>
-                    <span className="text-[10px] text-amber-400/80">({formatPercent(a.percentRiskContribution, 0)} risk)</span>
+                    <span className="font-semibold text-slate-800">{formatPercent(a.weight, 1)}</span>
+                    <span className="text-[10px] text-amber-700">({formatPercent(a.percentRiskContribution, 0)} risk)</span>
                   </div>
                 </div>
               ))}

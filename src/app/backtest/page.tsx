@@ -2,12 +2,9 @@
 
 import React, { useState, useMemo } from 'react';
 import {
-  SlidersHorizontal,
   ChevronDown,
   ChevronUp,
   Printer,
-  Layers,
-  Sparkles,
 } from 'lucide-react';
 import {
   runBacktest,
@@ -30,7 +27,7 @@ import { AiPortfolioAnalyst } from '@/components/ai/AiPortfolioAnalyst';
 import { RollingMetricsChart } from '@/components/charts/RollingMetricsChart';
 import { StressTestingCard } from '@/components/stress/StressTestingCard';
 import { TearSheetModal } from '@/components/reports/TearSheetModal';
-import { PageHeader, SectionHeader } from '@/components/ui/PageHeader';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -168,44 +165,44 @@ export default function BacktestPage() {
 
   // Chart Series
   const growthSeries = [
-    { id: 'p1', name: port1Name, color: '#6366f1', data: result1.history.map((h) => ({ date: h.date, value: h.portfolioValue })) },
-    { id: 'p2', name: port2Name, color: '#10b981', data: result2.history.map((h) => ({ date: h.date, value: h.portfolioValue })) },
-    { id: 'p3', name: port3Name, color: '#f59e0b', data: result3.history.map((h) => ({ date: h.date, value: h.portfolioValue })) },
+    { id: 'p1', name: port1Name, color: '#2563eb', data: result1.history.map((h) => ({ date: h.date, value: h.portfolioValue })) },
+    { id: 'p2', name: port2Name, color: '#16a34a', data: result2.history.map((h) => ({ date: h.date, value: h.portfolioValue })) },
+    { id: 'p3', name: port3Name, color: '#d97706', data: result3.history.map((h) => ({ date: h.date, value: h.portfolioValue })) },
   ];
 
   const drawdownSeries = [
-    { id: 'p1', name: port1Name, color: '#6366f1', data: result1.history.map((h) => ({ date: h.date, drawdown: h.drawdown })) },
-    { id: 'p2', name: port2Name, color: '#10b981', data: result2.history.map((h) => ({ date: h.date, drawdown: h.drawdown })) },
-    { id: 'p3', name: port3Name, color: '#f59e0b', data: result3.history.map((h) => ({ date: h.date, drawdown: h.drawdown })) },
+    { id: 'p1', name: port1Name, color: '#2563eb', data: result1.history.map((h) => ({ date: h.date, drawdown: h.drawdown })) },
+    { id: 'p2', name: port2Name, color: '#16a34a', data: result2.history.map((h) => ({ date: h.date, drawdown: h.drawdown })) },
+    { id: 'p3', name: port3Name, color: '#d97706', data: result3.history.map((h) => ({ date: h.date, drawdown: h.drawdown })) },
   ];
 
   const annualBarSeries = [
-    { id: 'p1', name: port1Name, color: '#6366f1', returns: result1.annualReturns },
-    { id: 'p2', name: port2Name, color: '#10b981', returns: result2.annualReturns },
-    { id: 'p3', name: port3Name, color: '#f59e0b', returns: result3.annualReturns },
+    { id: 'p1', name: port1Name, color: '#2563eb', returns: result1.annualReturns },
+    { id: 'p2', name: port2Name, color: '#16a34a', returns: result2.annualReturns },
+    { id: 'p3', name: port3Name, color: '#d97706', returns: result3.annualReturns },
   ];
 
   const comparisonPortfolios = [
-    { id: 'p1', name: port1Name, color: '#6366f1', metrics: result1.summary },
-    { id: 'p2', name: port2Name, color: '#10b981', metrics: result2.summary },
-    { id: 'p3', name: port3Name, color: '#f59e0b', metrics: result3.summary },
+    { id: 'p1', name: port1Name, color: '#2563eb', metrics: result1.summary },
+    { id: 'p2', name: port2Name, color: '#16a34a', metrics: result2.summary },
+    { id: 'p3', name: port3Name, color: '#d97706', metrics: result3.summary },
   ];
 
   const rollingSeries = [
-    { name: port1Name, color: '#6366f1', returns: result1.history.map((h) => h.portfolioReturn) },
-    { name: port2Name, color: '#10b981', returns: result2.history.map((h) => h.portfolioReturn) },
-    { name: port3Name, color: '#f59e0b', returns: result3.history.map((h) => h.portfolioReturn) },
+    { name: port1Name, color: '#2563eb', returns: result1.history.map((h) => h.portfolioReturn) },
+    { name: port2Name, color: '#16a34a', returns: result2.history.map((h) => h.portfolioReturn) },
+    { name: port3Name, color: '#d97706', returns: result3.history.map((h) => h.portfolioReturn) },
   ];
 
   const stressPortfolios = [
-    { name: port1Name, color: '#6366f1', returns: result1.history.map((h) => h.portfolioReturn) },
-    { name: port2Name, color: '#10b981', returns: result2.history.map((h) => h.portfolioReturn) },
-    { name: port3Name, color: '#f59e0b', returns: result3.history.map((h) => h.portfolioReturn) },
+    { name: port1Name, color: '#2563eb', returns: result1.history.map((h) => h.portfolioReturn) },
+    { name: port2Name, color: '#16a34a', returns: result2.history.map((h) => h.portfolioReturn) },
+    { name: port3Name, color: '#d97706', returns: result3.history.map((h) => h.portfolioReturn) },
   ];
 
   const benchmarkStressInput = {
     name: `Benchmark (${benchmarkSymbol})`,
-    color: '#94a3b8',
+    color: '#64748b',
     returns: benchmarkReturns,
   };
 
@@ -250,43 +247,43 @@ export default function BacktestPage() {
       </PageHeader>
 
       {/* Portfolio Switcher Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
         <button
           type="button"
           onClick={() => setActiveTab('port1')}
-          className={`flex items-center gap-2 h-9 px-3.5 rounded-lg text-xs font-medium transition-all ${
+          className={`flex items-center gap-2 h-9 px-3.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
             activeTab === 'port1'
-              ? 'bg-indigo-600/15 text-indigo-300 border border-indigo-500/40 shadow-sm'
-              : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-xs font-semibold'
+              : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
           }`}
         >
-          <span className="w-2 h-2 rounded-full bg-indigo-500" />
+          <span className="w-2 h-2 rounded-full bg-blue-600" />
           {port1Name}
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('port2')}
-          className={`flex items-center gap-2 h-9 px-3.5 rounded-lg text-xs font-medium transition-all ${
+          className={`flex items-center gap-2 h-9 px-3.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
             activeTab === 'port2'
-              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/40 shadow-sm'
-              : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs font-semibold'
+              : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
           }`}
         >
-          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+          <span className="w-2 h-2 rounded-full bg-emerald-600" />
           {port2Name}
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('port3')}
-          className={`flex items-center gap-2 h-9 px-3.5 rounded-lg text-xs font-medium transition-all ${
+          className={`flex items-center gap-2 h-9 px-3.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
             activeTab === 'port3'
-              ? 'bg-amber-500/15 text-amber-300 border border-amber-500/40 shadow-sm'
-              : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              ? 'bg-amber-50 text-amber-700 border border-amber-200 shadow-xs font-semibold'
+              : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
           }`}
         >
-          <span className="w-2 h-2 rounded-full bg-amber-400" />
+          <span className="w-2 h-2 rounded-full bg-amber-600" />
           {port3Name}
         </button>
       </div>
@@ -299,7 +296,7 @@ export default function BacktestPage() {
             onNameChange={setPort1Name}
             assets={port1Assets}
             onChange={setPort1Assets}
-            accentColor="#6366f1"
+            accentColor="#2563eb"
           />
         )}
         {activeTab === 'port2' && (
@@ -308,7 +305,7 @@ export default function BacktestPage() {
             onNameChange={setPort2Name}
             assets={port2Assets}
             onChange={setPort2Assets}
-            accentColor="#10b981"
+            accentColor="#16a34a"
           />
         )}
         {activeTab === 'port3' && (
@@ -317,24 +314,24 @@ export default function BacktestPage() {
             onNameChange={setPort3Name}
             assets={port3Assets}
             onChange={setPort3Assets}
-            accentColor="#f59e0b"
+            accentColor="#d97706"
           />
         )}
       </div>
 
       {/* Backtest & Cash Flow Settings Card */}
-      <Card className="shadow-md">
+      <Card className="shadow-xs border-slate-200 bg-white">
         <CardHeader>
           <div>
-            <CardTitle>Simulation Parameters & Rebalancing</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-slate-900">Simulation Parameters & Rebalancing</CardTitle>
+            <CardDescription className="text-slate-500">
               Configure initial capital, rebalancing frequency, benchmark comparison, and fee drag
             </CardDescription>
           </div>
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 font-medium"
+            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
           >
             {showAdvanced ? 'Hide Advanced Settings' : 'Show Advanced Settings'}
             {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -345,30 +342,30 @@ export default function BacktestPage() {
           {/* Basic Settings */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
             <div>
-              <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+              <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                 Starting Capital
               </label>
-              <div className="flex items-center h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 focus-within:border-indigo-500 transition">
-                <span className="text-slate-500 mr-1.5">$</span>
+              <div className="flex items-center h-9 bg-white border border-slate-200 rounded-lg px-3 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/20 transition">
+                <span className="text-slate-400 mr-1.5 font-sans">$</span>
                 <input
                   type="number"
                   min="100"
                   step="1000"
                   value={initialBalance}
                   onChange={(e) => setInitialBalance(parseFloat(e.target.value) || 10000)}
-                  className="w-full bg-transparent font-mono text-slate-100 focus:outline-none"
+                  className="w-full bg-transparent font-mono text-slate-900 focus:outline-none"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+              <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                 Rebalancing
               </label>
               <select
                 value={rebalanceFreq}
                 onChange={(e) => setRebalanceFreq(e.target.value as RebalanceFrequency)}
-                className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-200 focus:border-indigo-500 focus:outline-none"
+                className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none cursor-pointer"
               >
                 <option value="never">No Rebalancing</option>
                 <option value="monthly">Monthly</option>
@@ -380,13 +377,13 @@ export default function BacktestPage() {
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+              <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                 Benchmark Asset
               </label>
               <select
                 value={benchmarkSymbol}
                 onChange={(e) => setBenchmarkSymbol(e.target.value)}
-                className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-200 focus:border-indigo-500 focus:outline-none font-mono"
+                className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
               >
                 <option value="SPY">SPY (S&P 500 Large Cap)</option>
                 <option value="QQQ">QQQ (Nasdaq 100 Tech)</option>
@@ -402,10 +399,10 @@ export default function BacktestPage() {
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+              <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                 Annual Advisory Fee
               </label>
-              <div className="flex items-center h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 focus-within:border-indigo-500 transition">
+              <div className="flex items-center h-9 bg-white border border-slate-200 rounded-lg px-3 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/20 transition">
                 <input
                   type="number"
                   min="0"
@@ -413,24 +410,24 @@ export default function BacktestPage() {
                   step="5"
                   value={advisoryFeeBps}
                   onChange={(e) => setAdvisoryFeeBps(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-transparent font-mono text-slate-100 focus:outline-none"
+                  className="w-full bg-transparent font-mono text-slate-900 focus:outline-none"
                 />
-                <span className="text-slate-500 ml-1.5 text-[11px] font-mono">bps</span>
+                <span className="text-slate-400 ml-1.5 text-[11px] font-mono">bps</span>
               </div>
             </div>
           </div>
 
           {/* Progressive Disclosure: Advanced Settings */}
           {showAdvanced && (
-            <div className="pt-4 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+            <div className="pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
               <div>
-                <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+                <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                   Cash Flow Mode
                 </label>
                 <select
                   value={cashFlowType}
                   onChange={(e) => setCashFlowType(e.target.value as CashFlowType)}
-                  className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-200 focus:border-indigo-500 focus:outline-none"
+                  className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none cursor-pointer"
                 >
                   <option value="none">None (Lump Sum Only)</option>
                   <option value="contribute">Periodic Contribution ($)</option>
@@ -442,7 +439,7 @@ export default function BacktestPage() {
               {cashFlowType !== 'none' && (
                 <>
                   <div>
-                    <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+                    <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                       {cashFlowType === 'percentage_withdraw' ? 'Annual Percentage Rate (%)' : 'Amount ($)'}
                     </label>
                     <input
@@ -451,18 +448,18 @@ export default function BacktestPage() {
                       step={cashFlowType === 'percentage_withdraw' ? '0.5' : '100'}
                       value={cashFlowAmount}
                       onChange={(e) => setCashFlowAmount(parseFloat(e.target.value) || 0)}
-                      className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-100 focus:border-indigo-500 focus:outline-none font-mono"
+                      className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+                    <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                       Frequency
                     </label>
                     <select
                       value={cashFlowFreq}
                       onChange={(e) => setCashFlowFreq(e.target.value as any)}
-                      className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-200 focus:border-indigo-500 focus:outline-none"
+                      className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none cursor-pointer"
                     >
                       <option value="monthly">Monthly</option>
                       <option value="quarterly">Quarterly</option>
@@ -476,9 +473,9 @@ export default function BacktestPage() {
                       id="inflCheck"
                       checked={adjustInflation}
                       onChange={(e) => setAdjustInflation(e.target.checked)}
-                      className="accent-indigo-500 rounded cursor-pointer h-4 w-4"
+                      className="accent-blue-600 rounded cursor-pointer h-4 w-4"
                     />
-                    <label htmlFor="inflCheck" className="text-slate-300 font-medium cursor-pointer text-xs">
+                    <label htmlFor="inflCheck" className="text-slate-700 font-medium cursor-pointer text-xs">
                       Adjust for Inflation (CPI-U 2.5%)
                     </label>
                   </div>
@@ -487,7 +484,7 @@ export default function BacktestPage() {
 
               {rebalanceFreq === 'threshold' && (
                 <div>
-                  <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                     Drift Band Threshold (%)
                   </label>
                   <input
@@ -497,7 +494,7 @@ export default function BacktestPage() {
                     step="1"
                     value={rebalanceThreshold * 100}
                     onChange={(e) => setRebalanceThreshold((parseFloat(e.target.value) || 5) / 100)}
-                    className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-100 font-mono focus:border-indigo-500 focus:outline-none"
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-900 font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none"
                   />
                 </div>
               )}

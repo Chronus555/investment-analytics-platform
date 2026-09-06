@@ -81,7 +81,7 @@ export const PORTFOLIO_PRESETS: PortfolioPreset[] = [
 export function PresetSelector({ onSelect }: { onSelect: (preset: PortfolioPreset) => void }) {
   return (
     <div className="flex items-center gap-2 overflow-x-auto text-xs py-0.5">
-      <span className="text-[11px] font-mono uppercase tracking-wider text-slate-500 whitespace-nowrap">
+      <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 whitespace-nowrap font-medium">
         Presets:
       </span>
       <div className="flex items-center gap-1.5">
@@ -91,7 +91,7 @@ export function PresetSelector({ onSelect }: { onSelect: (preset: PortfolioPrese
             type="button"
             onClick={() => onSelect(p)}
             title={p.description}
-            className="whitespace-nowrap h-7 px-2.5 bg-slate-900 hover:bg-indigo-600/10 hover:border-indigo-500/40 border border-slate-800 rounded-md text-slate-300 hover:text-indigo-300 transition-colors text-[11px] font-medium"
+            className="whitespace-nowrap h-7 px-2.5 bg-white hover:bg-blue-50 hover:border-blue-300 border border-slate-200/90 rounded-md text-slate-700 hover:text-blue-700 transition-colors text-[11px] font-medium shadow-2xs cursor-pointer"
           >
             {p.name}
           </button>

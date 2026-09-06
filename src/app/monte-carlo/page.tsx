@@ -4,7 +4,6 @@ import React, { useState, useMemo } from 'react';
 import { runMonteCarloSimulation, SimulationMethod, MonteCarloResult } from '@/analytics/monteCarlo';
 import { CURATED_RETURNS } from '@/data/curatedData';
 import { FanChart } from '@/components/charts/FanChart';
-import { Shuffle, ShieldCheck, DollarSign, Calendar, Sliders, TrendingUp, AlertTriangle } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { MetricCard } from '@/components/ui/MetricCard';
@@ -64,51 +63,51 @@ export default function MonteCarloPage() {
       />
 
       {/* Simulation Controls Card */}
-      <Card className="shadow-md">
+      <Card className="shadow-xs border-slate-200 bg-white">
         <CardHeader>
           <div>
-            <CardTitle>Simulation Parameters & Cash Flow Rules</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-slate-900">Simulation Parameters & Cash Flow Rules</CardTitle>
+            <CardDescription className="text-slate-500">
               Configure initial capital, annual decumulation withdrawals, time horizon, and stochastic model
             </CardDescription>
           </div>
-          <span className="text-xs font-mono text-slate-400">
-            Model: <strong className="text-indigo-400 uppercase">{method.replace('_', ' ')}</strong>
+          <span className="text-xs font-mono text-slate-500">
+            Model: <strong className="text-blue-600 uppercase">{method.replace('_', ' ')}</strong>
           </span>
         </CardHeader>
 
         <div className="p-4 sm:p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
             <div>
-              <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+              <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                 Initial Capital
               </label>
-              <div className="flex items-center h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 focus-within:border-indigo-500 transition">
-                <span className="text-slate-500 mr-1.5">$</span>
+              <div className="flex items-center h-9 bg-white border border-slate-200 rounded-lg px-3 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/20 transition">
+                <span className="text-slate-400 mr-1.5 font-sans">$</span>
                 <input
                   type="number"
                   min="10000"
                   step="50000"
                   value={initialBalance}
                   onChange={(e) => setInitialBalance(parseFloat(e.target.value) || 1000000)}
-                  className="w-full bg-transparent font-mono text-slate-100 focus:outline-none"
+                  className="w-full bg-transparent font-mono text-slate-900 focus:outline-none"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+              <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                 Annual Spending
               </label>
-              <div className="flex items-center h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 focus-within:border-indigo-500 transition">
-                <span className="text-slate-500 mr-1.5">$</span>
+              <div className="flex items-center h-9 bg-white border border-slate-200 rounded-lg px-3 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/20 transition">
+                <span className="text-slate-400 mr-1.5 font-sans">$</span>
                 <input
                   type="number"
                   min="0"
                   step="5000"
                   value={annualWithdrawal}
                   onChange={(e) => setAnnualWithdrawal(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-transparent font-mono text-slate-100 focus:outline-none"
+                  className="w-full bg-transparent font-mono text-slate-900 focus:outline-none"
                 />
               </div>
               <span className="text-[10px] text-slate-500 font-mono mt-0.5 inline-block">
@@ -117,7 +116,7 @@ export default function MonteCarloPage() {
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+              <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                 Time Horizon (Years)
               </label>
               <input
@@ -126,18 +125,18 @@ export default function MonteCarloPage() {
                 max="50"
                 value={horizonYears}
                 onChange={(e) => setHorizonYears(parseInt(e.target.value, 10) || 30)}
-                className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-100 font-mono focus:border-indigo-500 focus:outline-none"
+                className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-900 font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+              <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                 Stochastic Method
               </label>
               <select
                 value={method}
                 onChange={(e) => setMethod(e.target.value as SimulationMethod)}
-                className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-200 focus:border-indigo-500 focus:outline-none"
+                className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none cursor-pointer"
               >
                 <option value="bootstrap">Historical Bootstrap (Resampling)</option>
                 <option value="parametric_normal">Parametric Gaussian</option>
@@ -147,15 +146,15 @@ export default function MonteCarloPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-800/80 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-100 text-xs">
             <div>
-              <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+              <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                 Asset Return Pool
               </label>
               <select
                 value={selectedAsset}
                 onChange={(e) => setSelectedAsset(e.target.value)}
-                className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-200 font-mono focus:border-indigo-500 focus:outline-none"
+                className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none cursor-pointer"
               >
                 <option value="SPY">SPY (S&P 500 Equity)</option>
                 <option value="VTI">VTI (Total US Market)</option>
@@ -165,13 +164,13 @@ export default function MonteCarloPage() {
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+              <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                 Simulation Paths
               </label>
               <select
                 value={numSimulations}
                 onChange={(e) => setNumSimulations(parseInt(e.target.value, 10))}
-                className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-200 font-mono focus:border-indigo-500 focus:outline-none"
+                className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none cursor-pointer"
               >
                 <option value="1000">1,000 Paths</option>
                 <option value="2000">2,000 Paths</option>
@@ -185,9 +184,9 @@ export default function MonteCarloPage() {
                 id="mcInfl"
                 checked={adjustInflation}
                 onChange={(e) => setAdjustInflation(e.target.checked)}
-                className="accent-indigo-500 rounded cursor-pointer h-4 w-4"
+                className="accent-blue-600 rounded cursor-pointer h-4 w-4"
               />
-              <label htmlFor="mcInfl" className="text-slate-300 font-medium cursor-pointer text-xs">
+              <label htmlFor="mcInfl" className="text-slate-700 font-medium cursor-pointer text-xs">
                 Adjust for Inflation ({formatPercent(inflationRate, 1)})
               </label>
             </div>
@@ -200,32 +199,33 @@ export default function MonteCarloPage() {
         <MetricCard
           label="Probability of Survival"
           value={formatPercent(result.survivalRate, 1)}
-          subtext={`Ending balance > $0 after ${horizonYears} years`}
-          change={result.survivalRate - 0.90}
-          accentColor="#10b981"
+          helperText={`Ending balance > $0 after ${horizonYears} years`}
+          change={`${formatPercent(result.survivalRate, 1)}`}
+          changeType={result.survivalRate >= 0.85 ? 'positive' : 'negative'}
         />
 
         <MetricCard
           label="Probability of Ruin"
           value={formatPercent(result.probabilityOfRuin, 1)}
-          subtext={`Risk of total portfolio depletion`}
-          trend={result.probabilityOfRuin > 0.1 ? 'down' : 'neutral'}
-          accentColor="#f43f5e"
+          helperText="Risk of total portfolio depletion"
+          change={`${formatPercent(result.probabilityOfRuin, 1)}`}
+          changeType={result.probabilityOfRuin > 0.1 ? 'negative' : 'neutral'}
         />
 
         <MetricCard
           label="Median Ending Wealth"
           value={formatCurrency(result.medianEndingValue)}
-          subtext="50th percentile nominal portfolio balance"
-          trend="up"
-          accentColor="#6366f1"
+          helperText="50th percentile nominal balance"
+          change="Median"
+          changeType="positive"
         />
 
         <MetricCard
           label="Safe Withdrawal Rate (95%)"
           value={formatPercent(result.safeWithdrawalRate || 0.04, 2)}
-          subtext="Max initial spending preserving 95% survival"
-          accentColor="#00b4d8"
+          helperText="Max spending for 95% survival"
+          change="95% SWR"
+          changeType="neutral"
         />
       </div>
 
@@ -233,11 +233,11 @@ export default function MonteCarloPage() {
       <FanChart data={result.fanChart} height={360} />
 
       {/* Percentiles Breakdown Table */}
-      <Card className="shadow-md">
+      <Card className="shadow-xs border-slate-200 bg-white">
         <CardHeader>
           <div>
-            <CardTitle>Simulated Terminal Wealth Percentiles (Year {horizonYears})</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-slate-900">Simulated Terminal Wealth Percentiles (Year {horizonYears})</CardTitle>
+            <CardDescription className="text-slate-500">
               Statistical distribution of terminal portfolio values across all simulated paths
             </CardDescription>
           </div>
@@ -246,13 +246,13 @@ export default function MonteCarloPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-800/80 text-[10px] uppercase font-mono tracking-wider text-slate-400 bg-slate-950/40">
-                <th className="py-2.5 px-4 font-medium">Percentile Confidence Band</th>
-                <th className="py-2.5 px-4 text-right font-medium">Terminal Portfolio Value</th>
-                <th className="py-2.5 px-4 text-right font-medium">Implied CAGR</th>
+              <tr className="border-b border-slate-200 text-[11px] uppercase font-mono tracking-wider text-slate-500 bg-slate-50/80">
+                <th className="py-2.5 px-4 font-semibold">Percentile Confidence Band</th>
+                <th className="py-2.5 px-4 text-right font-semibold">Terminal Portfolio Value</th>
+                <th className="py-2.5 px-4 text-right font-semibold">Implied CAGR</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/40 font-mono text-[12px]">
+            <tbody className="divide-y divide-slate-100 font-mono text-[12px]">
               {[
                 { label: '95th Percentile (Super Bull)', value: result.percentiles.p95 },
                 { label: '90th Percentile (Bull Scenario)', value: result.percentiles.p90 },
@@ -264,16 +264,16 @@ export default function MonteCarloPage() {
               ].map((p) => {
                 const impliedCAGR = Math.pow(Math.max(0.001, p.value / initialBalance), 1 / horizonYears) - 1;
                 return (
-                  <tr key={p.label} className="hover:bg-slate-850/40 transition-colors">
-                    <td className="py-2.5 px-4 text-slate-300 font-sans font-medium">
+                  <tr key={p.label} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="py-2.5 px-4 text-slate-700 font-sans font-medium">
                       {p.label}
                     </td>
-                    <td className="py-2.5 px-4 text-right font-bold text-slate-100 tabular-nums">
+                    <td className="py-2.5 px-4 text-right font-bold text-slate-900 tabular-nums">
                       {formatCurrency(p.value)}
                     </td>
                     <td
                       className={`py-2.5 px-4 text-right font-semibold tabular-nums ${
-                        impliedCAGR >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                        impliedCAGR >= 0 ? 'text-emerald-600' : 'text-red-600'
                       }`}
                     >
                       {formatPercent(impliedCAGR, 2, true)}

@@ -65,11 +65,11 @@ export function FrontierChart({
     .join(' ');
 
   return (
-    <div className="w-full bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-xl">
+    <div className="w-full bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div>
-          <h3 className="text-base font-semibold text-white tracking-wide">Markowitz Efficient Frontier</h3>
-          <p className="text-xs text-slate-400">Optimal risk/return curve with Tangency and Minimum Variance portfolios</p>
+          <h3 className="text-base font-semibold text-slate-900 tracking-tight">Markowitz Efficient Frontier</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Optimal risk/return curve with Tangency and Minimum Variance portfolios</p>
         </div>
       </div>
 
@@ -83,8 +83,8 @@ export function FrontierChart({
                 y1={getY(r)}
                 x2={width - padRight}
                 y2={getY(r)}
-                stroke="rgba(255,255,255,0.06)"
-                strokeDasharray="4 4"
+                stroke="#e2e8f0"
+                strokeDasharray="3 3"
               />
               <text x={padLeft - 8} y={getY(r) + 4} textAnchor="end" fill="#64748b" fontSize="10" fontFamily="monospace">
                 {(r * 100).toFixed(1)}%
@@ -100,8 +100,8 @@ export function FrontierChart({
                 y1={padTop}
                 x2={getX(v)}
                 y2={height - padBottom}
-                stroke="rgba(255,255,255,0.06)"
-                strokeDasharray="4 4"
+                stroke="#e2e8f0"
+                strokeDasharray="3 3"
               />
               <text x={getX(v)} y={height - 15} textAnchor="middle" fill="#64748b" fontSize="10" fontFamily="monospace">
                 {(v * 100).toFixed(1)}%
@@ -110,14 +110,14 @@ export function FrontierChart({
           ))}
 
           {/* Axis Titles */}
-          <text x={width / 2} y={height - 2} textAnchor="middle" fill="#94a3b8" fontSize="11" fontWeight="500">
+          <text x={width / 2} y={height - 2} textAnchor="middle" fill="#475569" fontSize="11" fontWeight="500">
             Annualized Volatility (Risk)
           </text>
           <text
             x={15}
             y={height / 2}
             textAnchor="middle"
-            fill="#94a3b8"
+            fill="#475569"
             fontSize="11"
             fontWeight="500"
             transform={`rotate(-90 15 ${height / 2})`}
@@ -126,7 +126,7 @@ export function FrontierChart({
           </text>
 
           {/* Frontier Curve */}
-          <path d={linePath} fill="none" stroke="#38bdf8" strokeWidth="3" />
+          <path d={linePath} fill="none" stroke="#2563eb" strokeWidth="2.5" />
 
           {/* Individual Assets */}
           {individualAssets.map((asset) => (
@@ -135,16 +135,17 @@ export function FrontierChart({
                 cx={getX(asset.volatility)}
                 cy={getY(asset.return)}
                 r="4"
-                fill="#94a3b8"
-                stroke="#0f172a"
+                fill="#64748b"
+                stroke="#ffffff"
                 strokeWidth="1.5"
               />
               <text
                 x={getX(asset.volatility) + 6}
                 y={getY(asset.return) + 3}
-                fill="#94a3b8"
+                fill="#475569"
                 fontSize="10"
                 fontFamily="monospace"
+                fontWeight="500"
               >
                 {asset.symbol}
               </text>
@@ -158,8 +159,8 @@ export function FrontierChart({
               cx={getX(pt.volatility)}
               cy={getY(pt.return)}
               r="4"
-              fill="#0ea5e9"
-              className="cursor-pointer hover:r-6 transition-all"
+              fill="#3b82f6"
+              className="cursor-pointer hover:scale-125 transition-all"
               onMouseEnter={() => setHoverPoint(pt)}
             />
           ))}
@@ -178,7 +179,7 @@ export function FrontierChart({
               <text
                 x={getX(minVarPortfolio.volatility) - 10}
                 y={getY(minVarPortfolio.return) - 10}
-                fill="#f59e0b"
+                fill="#d97706"
                 fontSize="11"
                 fontWeight="bold"
               >
@@ -201,7 +202,7 @@ export function FrontierChart({
               <text
                 x={getX(maxSharpePortfolio.volatility) + 10}
                 y={getY(maxSharpePortfolio.return) - 10}
-                fill="#10b981"
+                fill="#059669"
                 fontSize="11"
                 fontWeight="bold"
               >
@@ -224,7 +225,7 @@ export function FrontierChart({
               <text
                 x={getX(currentPortfolio.volatility) + 10}
                 y={getY(currentPortfolio.return) + 15}
-                fill="#ec4899"
+                fill="#db2777"
                 fontSize="11"
                 fontWeight="bold"
               >
@@ -236,39 +237,39 @@ export function FrontierChart({
 
         {/* Hover Inspector Card */}
         {hoverPoint && (
-          <div className="absolute top-4 right-4 bg-slate-950/95 border border-sky-500/40 rounded-xl p-3 shadow-2xl text-xs z-20 w-64 backdrop-blur-md">
-            <div className="font-semibold text-sky-400 border-b border-slate-800 pb-1 mb-2">
+          <div className="absolute top-4 right-4 bg-white border border-slate-200 rounded-xl p-3.5 shadow-lg text-xs z-20 w-64">
+            <div className="font-semibold text-blue-700 border-b border-slate-100 pb-1 mb-2">
               Frontier Portfolio Details
             </div>
             <div className="space-y-1 mb-2">
               <div className="flex justify-between">
-                <span className="text-slate-400">Expected Return:</span>
-                <span className="font-mono font-semibold text-emerald-400">
+                <span className="text-slate-500">Expected Return:</span>
+                <span className="font-mono font-semibold text-emerald-700">
                   {(hoverPoint.return * 100).toFixed(2)}%
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Annual Volatility:</span>
-                <span className="font-mono font-semibold text-white">
+                <span className="text-slate-500">Annual Volatility:</span>
+                <span className="font-mono font-semibold text-slate-900">
                   {(hoverPoint.volatility * 100).toFixed(2)}%
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Sharpe Ratio:</span>
-                <span className="font-mono font-semibold text-sky-300">
+                <span className="text-slate-500">Sharpe Ratio:</span>
+                <span className="font-mono font-semibold text-blue-700">
                   {hoverPoint.sharpeRatio.toFixed(2)}
                 </span>
               </div>
             </div>
-            <div className="border-t border-slate-800 pt-1.5">
-              <div className="text-[11px] text-slate-400 mb-1">Asset Allocation:</div>
+            <div className="border-t border-slate-100 pt-1.5">
+              <div className="text-[11px] font-medium text-slate-500 mb-1">Asset Allocation:</div>
               <div className="space-y-0.5 max-h-28 overflow-y-auto">
                 {Object.entries(hoverPoint.weights)
                   .filter(([_, w]) => w > 0.001)
                   .map(([sym, w]) => (
                     <div key={sym} className="flex justify-between text-[11px]">
-                      <span className="text-slate-300">{sym}:</span>
-                      <span className="font-mono font-medium text-slate-200">
+                      <span className="text-slate-700 font-medium">{sym}:</span>
+                      <span className="font-mono text-slate-900">
                         {(w * 100).toFixed(1)}%
                       </span>
                     </div>

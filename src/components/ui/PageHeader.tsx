@@ -23,16 +23,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   const actionContent = actions || children;
 
   return (
-    <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-6 ${className}`}>
+    <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-5 ${className}`}>
       <div>
         <div className="flex items-center gap-2.5">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
             {title}
           </h1>
           {badge}
         </div>
         {textDescription && (
-          <p className="mt-1 text-xs sm:text-sm text-slate-400 max-w-3xl leading-relaxed">
+          <p className="mt-1 text-xs sm:text-sm text-slate-600 max-w-3xl leading-relaxed">
             {textDescription}
           </p>
         )}
@@ -66,13 +66,13 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
     <div className={`flex flex-wrap items-center justify-between gap-3 ${className}`}>
       <div>
         <div className="flex items-center gap-2">
-          {icon && <span className="text-slate-400">{icon}</span>}
-          <h2 className="text-base sm:text-lg font-semibold text-slate-100 tracking-tight">
+          {icon && <span className="text-slate-500">{icon}</span>}
+          <h2 className="text-base sm:text-lg font-semibold text-slate-900 tracking-tight">
             {title}
           </h2>
         </div>
         {description && (
-          <p className="mt-0.5 text-xs text-slate-400 leading-normal">
+          <p className="mt-0.5 text-xs text-slate-500 leading-normal">
             {description}
           </p>
         )}

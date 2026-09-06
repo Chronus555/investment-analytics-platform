@@ -4,18 +4,19 @@
 
 @layer base {
   :root {
-    --background: #090d16;
-    --foreground: #f8fafc;
-    --card: #0e1526;
-    --card-foreground: #f8fafc;
-    --card-border: #1e293b;
-    --card-subtle: #0b1120;
-    --muted: #64748b;
-    --muted-foreground: #94a3b8;
-    --accent: #38bdf8;
-    --accent-emerald: #10b981;
-    --accent-rose: #f43f5e;
-    --accent-amber: #f59e0b;
+    --background: #f8fafc;
+    --foreground: #0f172a;
+    --card: #ffffff;
+    --card-foreground: #0f172a;
+    --card-border: #e2e8f0;
+    --card-subtle: #f1f5f9;
+    --muted: #475569;
+    --muted-foreground: #64748b;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-emerald: #16a34a;
+    --accent-rose: #dc2626;
+    --accent-amber: #d97706;
   }
 
   body {
@@ -26,38 +27,39 @@
     overflow-x: hidden;
   }
 
-  /* Force tabular numbers for all financial numbers, tables, and percentages */
+  /* Enforce tabular numbers across financial tables, inputs, and badges */
   .tabular-nums, table, [data-tabular="true"], input[type="number"] {
     font-variant-numeric: tabular-nums;
   }
 }
 
-/* Polished modern scrollbar */
+/* Polished modern light scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: #f8fafc;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: #cbd5e1;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #94a3b8;
 }
 
-/* Subtle glassmorphism and surface cards */
+/* Soft card surfaces */
 .card-surface {
-  background-color: #0e1526;
-  border: 1px solid #1e293b;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 0.75rem; /* 12px */
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 .card-surface-subtle {
-  background-color: #0b1120;
-  border: 1px solid #1e293b;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 0.5rem; /* 8px */
 }
 

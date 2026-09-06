@@ -99,20 +99,20 @@ export function MetricTooltip({ metricKey, children }: { metricKey: string; chil
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
         onClick={() => setOpen(!open)}
-        className="text-slate-400 hover:text-sky-400 transition-colors focus:outline-none"
+        className="text-slate-400 hover:text-blue-600 transition-colors focus:outline-none cursor-pointer"
         aria-label={`Info about ${def.label}`}
       >
         <Info className="w-3.5 h-3.5" />
       </button>
 
       {open && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-3 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-lg shadow-2xl z-50 text-xs text-slate-200 pointer-events-none transition-all">
-          <div className="font-semibold text-sky-400 border-b border-slate-800 pb-1 mb-1.5">
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-3 bg-white border border-slate-200 rounded-lg shadow-xl z-50 text-xs text-slate-700 pointer-events-none transition-all">
+          <div className="font-semibold text-slate-900 border-b border-slate-100 pb-1 mb-1.5">
             {def.label}
           </div>
-          <p className="text-slate-300 leading-relaxed mb-2">{def.desc}</p>
-          <div className="bg-slate-950/80 p-1.5 rounded font-mono text-[11px] text-teal-400 border border-slate-800/80">
-            <span className="text-slate-500 mr-1">Formula:</span> {def.formula}
+          <p className="text-slate-600 leading-relaxed mb-2">{def.desc}</p>
+          <div className="bg-slate-50 p-1.5 rounded font-mono text-[11px] text-blue-700 border border-slate-200">
+            <span className="text-slate-500 mr-1 font-sans">Formula:</span> {def.formula}
           </div>
         </div>
       )}

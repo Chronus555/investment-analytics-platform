@@ -54,11 +54,11 @@ export function AnnualReturnsBar({ series, height = 300 }: AnnualReturnsBarProps
   const barWidth = Math.max(2, (groupWidth * 0.75) / numSeries);
 
   return (
-    <div className="w-full bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-xl">
+    <div className="w-full bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-base font-semibold text-white tracking-wide">Annual Returns</h3>
-          <p className="text-xs text-slate-400">Calendar year comparison across portfolios</p>
+          <h3 className="text-base font-semibold text-slate-900 tracking-tight">Annual Returns</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Calendar year comparison across portfolios</p>
         </div>
       </div>
 
@@ -66,7 +66,7 @@ export function AnnualReturnsBar({ series, height = 300 }: AnnualReturnsBarProps
         {series.map((s) => (
           <div key={s.id} className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
-            <span className="text-slate-300 font-medium">{s.name}</span>
+            <span className="text-slate-700 font-medium">{s.name}</span>
           </div>
         ))}
       </div>
@@ -93,7 +93,7 @@ export function AnnualReturnsBar({ series, height = 300 }: AnnualReturnsBarProps
                   y1={y}
                   x2={width - padRight}
                   y2={y}
-                  stroke="rgba(255,255,255,0.06)"
+                  stroke="#e2e8f0"
                   strokeDasharray="3 3"
                 />
                 <text

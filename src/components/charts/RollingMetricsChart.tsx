@@ -105,78 +105,50 @@ export const RollingMetricsChart: React.FC<RollingMetricsChartProps> = ({
   };
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div className="rounded-xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
-          <h3 className="font-semibold text-slate-100">Rolling Analysis</h3>
-          <p className="text-xs text-slate-400">
+          <h3 className="font-semibold text-slate-900 tracking-tight">Rolling Analysis</h3>
+          <p className="text-xs text-slate-500 mt-0.5">
             Sliding window performance to observe regime-dependent volatility and stability
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Metric Selector */}
-          <div className="flex rounded-lg bg-slate-950 p-1 border border-slate-800 text-xs">
-            <button
-              onClick={() => setMetric('returns')}
-              className={`rounded px-2.5 py-1 font-medium transition ${
-                metric === 'returns' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Return (CAGR)
-            </button>
-            <button
-              onClick={() => setMetric('volatility')}
-              className={`rounded px-2.5 py-1 font-medium transition ${
-                metric === 'volatility' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Volatility
-            </button>
-            <button
-              onClick={() => setMetric('sharpe')}
-              className={`rounded px-2.5 py-1 font-medium transition ${
-                metric === 'sharpe' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Sharpe
-            </button>
-            <button
-              onClick={() => setMetric('beta')}
-              className={`rounded px-2.5 py-1 font-medium transition ${
-                metric === 'beta' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Beta
-            </button>
+          <div className="flex rounded-lg bg-slate-100 p-0.5 border border-slate-200/70 text-xs">
+            {(['returns', 'volatility', 'sharpe', 'beta'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMetric(m)}
+                className={`rounded px-2.5 py-1 font-medium transition cursor-pointer capitalize ${
+                  metric === m ? 'bg-white text-blue-700 shadow-2xs font-semibold' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {m === 'returns' ? 'CAGR' : m}
+              </button>
+            ))}
           </div>
 
           {/* Window Selector */}
-          <div className="flex rounded-lg bg-slate-950 p-1 border border-slate-800 text-xs">
-            <button
-              onClick={() => setWindowMonths(12)}
-              className={`rounded px-2.5 py-1 font-medium transition ${
-                windowMonths === 12 ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              1 Year
-            </button>
-            <button
-              onClick={() => setWindowMonths(36)}
-              className={`rounded px-2.5 py-1 font-medium transition ${
-                windowMonths === 36 ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              3 Years
-            </button>
-            <button
-              onClick={() => setWindowMonths(60)}
-              className={`rounded px-2.5 py-1 font-medium transition ${
-                windowMonths === 60 ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              5 Years
-            </button>
+          <div className="flex rounded-lg bg-slate-100 p-0.5 border border-slate-200/70 text-xs">
+            {[
+              { val: 12, label: '1 Year' },
+              { val: 36, label: '3 Years' },
+              { val: 60, label: '5 Years' },
+            ].map((w) => (
+              <button
+                key={w.val}
+                type="button"
+                onClick={() => setWindowMonths(w.val)}
+                className={`rounded px-2.5 py-1 font-medium transition cursor-pointer ${
+                  windowMonths === w.val ? 'bg-white text-blue-700 shadow-2xs font-semibold' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {w.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -202,7 +174,7 @@ export const RollingMetricsChart: React.FC<RollingMetricsChartProps> = ({
                     y1={y}
                     x2={chartWidth - padding.right}
                     y2={y}
-                    stroke="#1e293b"
+                    stroke="#e2e8f0"
                     strokeDasharray="3 3"
                     strokeWidth="1"
                   />
@@ -227,7 +199,7 @@ export const RollingMetricsChart: React.FC<RollingMetricsChartProps> = ({
                 y1={getY(0)}
                 x2={chartWidth - padding.right}
                 y2={getY(0)}
-                stroke="#475569"
+                stroke="#94a3b8"
                 strokeWidth="1.5"
               />
             )}
@@ -294,7 +266,7 @@ export const RollingMetricsChart: React.FC<RollingMetricsChartProps> = ({
             {rollingData.map((s) => (
               <div key={s.name} className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color }} />
-                <span className="text-slate-300 font-medium">{s.name}</span>
+                <span className="text-slate-700 font-medium">{s.name}</span>
                 {s.values.length > 0 && (
                   <span className="text-slate-500 font-mono">
                     ({formatValue(s.values[s.values.length - 1])})

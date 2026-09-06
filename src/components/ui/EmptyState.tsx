@@ -26,12 +26,12 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   const actionNode = action || children;
 
   return (
-    <div className={`rounded-xl border border-dashed border-slate-800 bg-slate-950/40 p-8 text-center flex flex-col items-center justify-center ${className}`}>
-      <div className="mb-3 rounded-full bg-slate-900 p-3 border border-slate-800 text-slate-400">
+    <div className={`rounded-xl border border-dashed border-slate-300 bg-white/70 p-8 text-center flex flex-col items-center justify-center ${className}`}>
+      <div className="mb-3 rounded-full bg-slate-100 p-3 border border-slate-200 text-slate-500">
         {icon}
       </div>
-      <h4 className="text-sm font-semibold text-slate-200">{title}</h4>
-      <p className="mt-1 text-xs text-slate-400 max-w-sm leading-normal">
+      <h4 className="text-sm font-semibold text-slate-900">{title}</h4>
+      <p className="mt-1 text-xs text-slate-500 max-w-sm leading-normal">
         {description}
       </p>
       {actionNode ? (
@@ -51,7 +51,7 @@ export const LoadingSkeleton: React.FC<{ className?: string; height?: number | s
 }) => {
   return (
     <div
-      className={`animate-pulse rounded bg-slate-800/60 ${className}`}
+      className={`animate-pulse rounded bg-slate-200/80 ${className}`}
       style={{ height }}
     />
   );

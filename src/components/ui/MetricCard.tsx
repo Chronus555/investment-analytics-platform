@@ -36,7 +36,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
 
   return (
     <div
-      className={`rounded-xl border border-slate-800 bg-slate-900/90 p-4 relative overflow-hidden transition hover:border-slate-700/80 ${className}`}
+      className={`rounded-xl border border-slate-200/80 bg-white p-4.5 relative overflow-hidden transition hover:border-slate-300 hover:shadow-sm ${className}`}
     >
       {accentColor && (
         <div
@@ -45,17 +45,17 @@ export const MetricCard: React.FC<MetricCardProps> = ({
         />
       )}
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">
+        <span className="text-[11px] font-medium tracking-wider uppercase text-slate-500">
           {label}
         </span>
         {change !== undefined && (
           <span
             className={`inline-flex items-center gap-0.5 font-mono text-[11px] font-medium px-1.5 py-0.5 rounded ${
               isPositive
-                ? 'bg-emerald-500/10 text-emerald-400'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                 : isNegative
-                ? 'bg-rose-500/10 text-rose-400'
-                : 'bg-slate-800 text-slate-400'
+                ? 'bg-red-50 text-red-700 border border-red-200'
+                : 'bg-slate-100 text-slate-600 border border-slate-200'
             }`}
           >
             {isPositive && <ArrowUpRight className="h-3 w-3" />}
@@ -67,7 +67,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
       </div>
 
       <div className="mt-2 flex items-baseline gap-2">
-        <span className="font-mono text-2xl font-semibold tracking-tight text-slate-100 tabular-nums">
+        <span className="font-mono text-2xl font-semibold tracking-tight text-slate-900 tabular-nums">
           {value}
         </span>
       </div>

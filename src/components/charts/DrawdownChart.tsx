@@ -74,11 +74,11 @@ export function DrawdownChart({ series, height = 280 }: DrawdownChartProps) {
   const yTicks = [0, minDD * 0.25, minDD * 0.5, minDD * 0.75, minDD];
 
   return (
-    <div className="w-full bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-xl">
+    <div className="w-full bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-base font-semibold text-white tracking-wide">Underwater Drawdowns</h3>
-          <p className="text-xs text-slate-400">Historical peak-to-trough decline over time</p>
+          <h3 className="text-base font-semibold text-slate-900 tracking-tight">Underwater Drawdowns</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Historical peak-to-trough decline over time</p>
         </div>
       </div>
 
@@ -87,7 +87,7 @@ export function DrawdownChart({ series, height = 280 }: DrawdownChartProps) {
         {series.map((s) => (
           <div key={s.id} className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
-            <span className="text-slate-300 font-medium">{s.name}</span>
+            <span className="text-slate-700 font-medium">{s.name}</span>
           </div>
         ))}
       </div>
@@ -126,8 +126,8 @@ export function DrawdownChart({ series, height = 280 }: DrawdownChartProps) {
                   y1={y}
                   x2={width - padRight}
                   y2={y}
-                  stroke="rgba(255,255,255,0.06)"
-                  strokeDasharray="4 4"
+                  stroke="#e2e8f0"
+                  strokeDasharray="3 3"
                 />
                 <text
                   x={padLeft - 10}
@@ -146,7 +146,7 @@ export function DrawdownChart({ series, height = 280 }: DrawdownChartProps) {
           {/* Areas & Lines */}
           {series.map((s) => (
             <g key={s.id}>
-              <path d={makeAreaPath(s.data)} fill={s.color} fillOpacity="0.15" />
+              <path d={makeAreaPath(s.data)} fill={s.color} fillOpacity="0.12" />
               <path
                 d={makeLinePath(s.data)}
                 fill="none"
@@ -174,12 +174,12 @@ export function DrawdownChart({ series, height = 280 }: DrawdownChartProps) {
         {/* Hover details */}
         {hoverIndex !== null && (
           <div
-            className="absolute top-4 bg-slate-950/95 border border-slate-700/80 rounded-lg p-2.5 shadow-2xl text-xs z-20 pointer-events-none"
+            className="absolute top-4 bg-white border border-slate-200/90 rounded-lg p-3 shadow-lg text-xs z-20 pointer-events-none"
             style={{
               left: `${Math.min(75, Math.max(15, (getX(hoverIndex) / width) * 100))}%`,
             }}
           >
-            <div className="font-semibold text-slate-300 border-b border-slate-800 pb-1 mb-1.5 font-mono">
+            <div className="font-semibold text-slate-900 border-b border-slate-100 pb-1 mb-1.5 font-mono">
               {dates[hoverIndex]}
             </div>
             <div className="space-y-1">
@@ -188,13 +188,13 @@ export function DrawdownChart({ series, height = 280 }: DrawdownChartProps) {
                 if (!pt) return null;
                 return (
                   <div key={s.id} className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-1.5 text-slate-300">
+                    <span className="flex items-center gap-1.5 text-slate-600">
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
                       {s.name}:
                     </span>
                     <span
                       className={`font-mono font-semibold ${
-                        pt.drawdown < 0 ? 'text-rose-400' : 'text-emerald-400'
+                        pt.drawdown < 0 ? 'text-red-600' : 'text-emerald-600'
                       }`}
                     >
                       {(pt.drawdown * 100).toFixed(2)}%

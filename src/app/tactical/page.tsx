@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { runDualMomentumStrategy, runMovingAverageStrategy } from '@/analytics/tactical';
-import { calculateCAGR, calculateTotalReturn } from '@/analytics/returns';
+import { calculateCAGR } from '@/analytics/returns';
 import { calculateMaxDrawdown } from '@/analytics/drawdowns';
 import { calculateAnnualizedVolatility } from '@/analytics/statistics';
 import { CURATED_DATES, CURATED_RETURNS } from '@/data/curatedData';
@@ -10,7 +10,6 @@ import { GrowthChart } from '@/components/charts/GrowthChart';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { MetricCard } from '@/components/ui/MetricCard';
-import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { formatPercent, formatRatio } from '@/utils/formatters';
 
@@ -109,8 +108,8 @@ export default function TacticalPage() {
   }, [strategyType, lookbackMonths, topHoldings, smaWindow, safeAsset, dates, prices]);
 
   const growthSeries = [
-    { id: 'strat', name: 'Tactical Strategy', color: '#6366f1', data: strategyGrowth },
-    { id: 'bench', name: 'SPY (Buy & Hold)', color: '#94a3b8', data: benchmarkGrowth },
+    { id: 'strat', name: 'Tactical Strategy', color: '#2563eb', data: strategyGrowth },
+    { id: 'bench', name: 'SPY (Buy & Hold)', color: '#64748b', data: benchmarkGrowth },
   ];
 
   return (
@@ -123,31 +122,31 @@ export default function TacticalPage() {
       />
 
       {/* Strategy Selector & Parameters Card */}
-      <Card className="shadow-md">
+      <Card className="shadow-xs border-slate-200 bg-white">
         <CardHeader>
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setStrategyType('dual_momentum')}
-              className={`h-8 px-3.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`h-8 px-3.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                 strategyType === 'dual_momentum'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+                  ? 'bg-blue-600 text-white shadow-xs font-semibold'
+                  : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
               }`}
             >
               Antonacci Dual Momentum
             </button>
             <button
               onClick={() => setStrategyType('moving_average')}
-              className={`h-8 px-3.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`h-8 px-3.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                 strategyType === 'moving_average'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+                  ? 'bg-blue-600 text-white shadow-xs font-semibold'
+                  : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
               }`}
             >
               10-Month Moving Average Trend
             </button>
           </div>
-          <span className="text-xs font-mono text-slate-400">
+          <span className="text-xs font-mono text-slate-500">
             Universe: {universe.join(', ')}
           </span>
         </CardHeader>
@@ -157,13 +156,13 @@ export default function TacticalPage() {
             {strategyType === 'dual_momentum' ? (
               <>
                 <div>
-                  <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                     Lookback Period
                   </label>
                   <select
                     value={lookbackMonths}
                     onChange={(e) => setLookbackMonths(parseInt(e.target.value, 10))}
-                    className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-200 focus:border-indigo-500 focus:outline-none font-mono"
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
                   >
                     <option value="6">6 Months</option>
                     <option value="12">12 Months (Canonical)</option>
@@ -171,13 +170,13 @@ export default function TacticalPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                     Top Momentum Holdings (N)
                   </label>
                   <select
                     value={topHoldings}
                     onChange={(e) => setTopHoldings(parseInt(e.target.value, 10))}
-                    className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-200 focus:border-indigo-500 focus:outline-none font-mono"
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
                   >
                     <option value="1">Top 1 Asset (Concentrated)</option>
                     <option value="2">Top 2 Assets (Balanced)</option>
@@ -187,13 +186,13 @@ export default function TacticalPage() {
               </>
             ) : (
               <div>
-                <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+                <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                   SMA Window
                 </label>
                 <select
                   value={smaWindow}
                   onChange={(e) => setSmaWindow(parseInt(e.target.value, 10))}
-                  className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-200 focus:border-indigo-500 focus:outline-none font-mono"
+                  className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
                 >
                   <option value="5">5 Months (Fast)</option>
                   <option value="10">10 Months (Faber 200-Day Equivalent)</option>
@@ -203,13 +202,13 @@ export default function TacticalPage() {
             )}
 
             <div>
-              <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+              <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                 Defensive Out-of-Market Asset
               </label>
               <select
                 value={safeAsset}
                 onChange={(e) => setSafeAsset(e.target.value)}
-                className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-200 focus:border-indigo-500 focus:outline-none font-mono"
+                className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
               >
                 <option value="BND">BND (Total Bond Market)</option>
                 <option value="BIL">BIL (1-3M Treasury / Cash)</option>
@@ -224,29 +223,30 @@ export default function TacticalPage() {
         <MetricCard
           label="Strategy CAGR"
           value={formatPercent(summary.stratCAGR, 2)}
-          subtext={`vs SPY Benchmark ${formatPercent(summary.benchCAGR, 2)}`}
-          change={summary.stratCAGR - summary.benchCAGR}
-          accentColor="#6366f1"
+          helperText={`vs SPY Benchmark ${formatPercent(summary.benchCAGR, 2)}`}
+          change={`${formatPercent(summary.stratCAGR, 1)}`}
+          changeType={summary.stratCAGR >= summary.benchCAGR ? 'positive' : 'negative'}
         />
         <MetricCard
           label="Strategy Volatility"
           value={formatPercent(summary.stratVol, 2)}
-          subtext={`vs SPY Benchmark ${formatPercent(summary.benchVol, 2)}`}
-          trend={summary.stratVol < summary.benchVol ? 'up' : 'down'}
-          accentColor="#10b981"
+          helperText={`vs SPY Benchmark ${formatPercent(summary.benchVol, 2)}`}
+          change={`${formatPercent(summary.stratVol, 1)}`}
+          changeType={summary.stratVol < summary.benchVol ? 'positive' : 'neutral'}
         />
         <MetricCard
           label="Strategy Sharpe Ratio"
           value={formatRatio(summary.stratSharpe, 2)}
-          subtext={`vs SPY Benchmark ${formatRatio(summary.benchSharpe, 2)}`}
-          change={summary.stratSharpe - summary.benchSharpe}
-          accentColor="#6366f1"
+          helperText={`vs SPY Benchmark ${formatRatio(summary.benchSharpe, 2)}`}
+          change={`Sharpe ${formatRatio(summary.stratSharpe, 2)}`}
+          changeType={summary.stratSharpe >= summary.benchSharpe ? 'positive' : 'negative'}
         />
         <MetricCard
           label="Max Drawdown"
           value={formatPercent(summary.stratMDD, 2)}
-          subtext={`vs SPY Benchmark ${formatPercent(summary.benchMDD, 2)}`}
-          accentColor="#f59e0b"
+          helperText={`vs SPY Benchmark ${formatPercent(summary.benchMDD, 2)}`}
+          change={`${formatPercent(summary.stratMDD, 1)}`}
+          changeType={summary.stratMDD > summary.benchMDD ? 'positive' : 'negative'}
         />
       </div>
 
@@ -254,29 +254,29 @@ export default function TacticalPage() {
       <GrowthChart series={growthSeries} height={350} />
 
       {/* Recent Tactical Signals Table */}
-      <Card className="shadow-md">
+      <Card className="shadow-xs border-slate-200 bg-white">
         <CardHeader>
           <div>
-            <CardTitle>Recent Monthly Tactical Allocations & Signals</CardTitle>
-            <CardDescription>Execution history over the past 12 months</CardDescription>
+            <CardTitle className="text-slate-900">Recent Monthly Tactical Allocations & Signals</CardTitle>
+            <CardDescription className="text-slate-500">Execution history over the past 12 months</CardDescription>
           </div>
         </CardHeader>
 
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-800/80 text-[10px] uppercase font-mono tracking-wider text-slate-400 bg-slate-950/40">
-                <th className="py-2.5 px-4">Period</th>
-                <th className="py-2.5 px-4">Target Regime</th>
-                <th className="py-2.5 px-4">Selected Assets & Weights</th>
+              <tr className="border-b border-slate-200 text-[11px] uppercase font-mono tracking-wider text-slate-500 bg-slate-50/80">
+                <th className="py-2.5 px-4 font-semibold">Period</th>
+                <th className="py-2.5 px-4 font-semibold">Target Regime</th>
+                <th className="py-2.5 px-4 font-semibold">Selected Assets & Weights</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/40 font-mono text-[12px]">
+            <tbody className="divide-y divide-slate-100 font-mono text-[12px]">
               {tradeLog.map((log) => {
                 const isDefensive = Object.keys(log.selectedAssets).includes(safeAsset);
                 return (
-                  <tr key={log.date} className="hover:bg-slate-850/40 transition-colors">
-                    <td className="py-2 px-4 text-slate-300 font-semibold">{log.date.slice(0, 7)}</td>
+                  <tr key={log.date} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="py-2 px-4 text-slate-800 font-semibold font-sans">{log.date.slice(0, 7)}</td>
                     <td className="py-2 px-4">
                       <Badge variant={isDefensive ? 'warning' : 'success'} size="sm">
                         {isDefensive ? 'Defensive Mode' : 'Offensive Momentum'}
@@ -287,7 +287,7 @@ export default function TacticalPage() {
                         {Object.entries(log.selectedAssets).map(([sym, w]) => (
                           <span
                             key={sym}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700/60 font-mono text-xs"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200 font-mono text-xs"
                           >
                             <strong>{sym}</strong> {formatPercent(w, 0)}
                           </span>

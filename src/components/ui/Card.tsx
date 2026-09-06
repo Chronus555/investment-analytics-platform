@@ -7,9 +7,9 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ children, variant = 'default', className = '', ...props }, ref) => {
     const variantStyles = {
-      default: 'bg-slate-900/90 border border-slate-800/90 rounded-xl',
-      subtle: 'bg-slate-950/60 border border-slate-850 rounded-lg',
-      elevated: 'bg-slate-900 border border-slate-750 rounded-xl shadow-lg shadow-black/20',
+      default: 'bg-white border border-slate-200/80 rounded-xl shadow-sm',
+      subtle: 'bg-slate-50/80 border border-slate-200/60 rounded-xl',
+      elevated: 'bg-white border border-slate-200 rounded-xl shadow-md shadow-slate-200/50',
     }[variant];
 
     return (
@@ -27,7 +27,7 @@ export const CardHeader: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   className = '',
   ...props
 }) => (
-  <div className={`p-4 sm:p-5 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3 ${className}`} {...props}>
+  <div className={`p-4 sm:p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 ${className}`} {...props}>
     {children}
   </div>
 );
@@ -37,7 +37,7 @@ export const CardTitle: React.FC<React.HTMLAttributes<HTMLHeadingElement>> = ({
   className = '',
   ...props
 }) => (
-  <h3 className={`text-sm sm:text-base font-semibold text-slate-100 tracking-tight ${className}`} {...props}>
+  <h3 className={`text-sm sm:text-base font-semibold text-slate-900 tracking-tight ${className}`} {...props}>
     {children}
   </h3>
 );
@@ -47,7 +47,7 @@ export const CardDescription: React.FC<React.HTMLAttributes<HTMLParagraphElement
   className = '',
   ...props
 }) => (
-  <p className={`text-xs text-slate-400 mt-0.5 leading-normal ${className}`} {...props}>
+  <p className={`text-xs text-slate-500 mt-0.5 leading-normal ${className}`} {...props}>
     {children}
   </p>
 );

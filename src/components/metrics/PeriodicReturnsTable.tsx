@@ -29,11 +29,11 @@ export function PeriodicReturnsTable({ portfolioName, annualReturns }: PeriodicR
   };
 
   return (
-    <Card className="w-full shadow-md">
+    <Card className="w-full shadow-xs border-slate-200 bg-white">
       <CardHeader>
         <div>
-          <CardTitle>Historical Calendar Year Returns</CardTitle>
-          <CardDescription>Chronological annual performance and ending wealth</CardDescription>
+          <CardTitle className="text-slate-900">Historical Calendar Year Returns</CardTitle>
+          <CardDescription className="text-slate-500">Chronological annual performance and ending wealth</CardDescription>
         </div>
         <Button onClick={handleExportCSV} variant="secondary" size="sm" icon={<Download className="w-3.5 h-3.5" />}>
           Export CSV
@@ -42,25 +42,25 @@ export function PeriodicReturnsTable({ portfolioName, annualReturns }: PeriodicR
 
       <div className="overflow-x-auto max-h-80 overflow-y-auto">
         <table className="w-full text-xs text-left border-collapse">
-          <thead className="sticky top-0 z-10 bg-slate-950">
-            <tr className="border-b border-slate-800/80 text-[10px] uppercase font-mono tracking-wider text-slate-400">
-              <th className="py-2.5 px-4">Year</th>
-              <th className="py-2.5 px-4 text-right">Calendar Return</th>
-              <th className="py-2.5 px-4 text-right">Ending Wealth</th>
+          <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200">
+            <tr className="text-[11px] uppercase font-mono tracking-wider text-slate-500">
+              <th className="py-2.5 px-4 font-semibold">Year</th>
+              <th className="py-2.5 px-4 text-right font-semibold">Calendar Return</th>
+              <th className="py-2.5 px-4 text-right font-semibold">Ending Wealth</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/40 font-mono text-[12px]">
+          <tbody className="divide-y divide-slate-100 font-mono text-[12px]">
             {annualReturns.map((r) => (
-              <tr key={r.year} className="hover:bg-slate-850/40 transition-colors">
-                <td className="py-2 px-4 text-slate-300 font-semibold">{r.year}</td>
+              <tr key={r.year} className="hover:bg-slate-50/70 transition-colors">
+                <td className="py-2 px-4 text-slate-800 font-semibold font-sans">{r.year}</td>
                 <td
                   className={`py-2 px-4 text-right font-medium ${
-                    r.return >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                    r.return >= 0 ? 'text-emerald-600' : 'text-red-600'
                   }`}
                 >
                   {formatPercent(r.return, 2, true)}
                 </td>
-                <td className="py-2 px-4 text-right text-slate-200">
+                <td className="py-2 px-4 text-right text-slate-700">
                   {formatCurrency(r.endingBalance)}
                 </td>
               </tr>
