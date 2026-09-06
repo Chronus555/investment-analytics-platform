@@ -12,85 +12,128 @@ import {
   Grid,
   TrendingUp,
   BookmarkCheck,
-  ShieldCheck
+  ShieldCheck,
+  Zap,
+  Layers,
+  Sparkles,
 } from 'lucide-react';
 
-const NAV_ITEMS = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard, badge: 'Live' },
-  { href: '/backtest', label: 'Backtest & Compare', icon: LineChart, badge: 'P0' },
-  { href: '/optimization', label: 'Optimization & Frontier', icon: PieChart },
-  { href: '/monte-carlo', label: 'Monte Carlo & Goals', icon: Shuffle },
-  { href: '/tactical', label: 'Tactical Strategies', icon: Compass },
-  { href: '/correlations', label: 'Asset Correlations', icon: Grid },
-  { href: '/factors', label: 'Factor Analysis', icon: TrendingUp },
-  { href: '/saved', label: 'Saved Analyses', icon: BookmarkCheck },
+interface NavSection {
+  title: string;
+  items: {
+    href: string;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    badge?: string;
+  }[];
+}
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    title: 'Overview',
+    items: [
+      { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+    ],
+  },
+  {
+    title: 'Portfolio Lab',
+    items: [
+      { href: '/backtest', label: 'Backtest & Compare', icon: LineChart },
+    ],
+  },
+  {
+    title: 'Quantitative Analysis',
+    items: [
+      { href: '/optimization', label: 'Optimization & Frontier', icon: PieChart },
+      { href: '/monte-carlo', label: 'Monte Carlo & Longevity', icon: Shuffle },
+      { href: '/correlations', label: 'Correlations & Matrix', icon: Grid },
+      { href: '/factors', label: 'Factor Attribution', icon: TrendingUp },
+    ],
+  },
+  {
+    title: 'Strategies',
+    items: [
+      { href: '/tactical', label: 'Tactical & Momentum Lab', icon: Compass },
+    ],
+  },
+  {
+    title: 'Library',
+    items: [
+      { href: '/saved', label: 'Saved Experiments', icon: BookmarkCheck },
+    ],
+  },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0 h-screen sticky top-0">
-      {/* Brand */}
-      <div className="p-5 border-b border-slate-800/80">
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-teal-400 flex items-center justify-center shadow-lg shadow-sky-500/20 group-hover:scale-105 transition-transform">
-            <LineChart className="w-5 h-5 text-slate-950 font-bold" />
+    <aside className="w-60 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none">
+      {/* Brand Header */}
+      <div className="h-14 px-5 border-b border-slate-800/80 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2.5 group">
+          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center shadow-sm shadow-indigo-950">
+            <Zap className="w-3.5 h-3.5 text-white fill-white" />
           </div>
           <div>
-            <div className="font-bold text-base tracking-tight text-white flex items-center gap-1.5">
-              QUANT<span className="text-sky-400">PULSE</span>
-            </div>
-            <div className="text-[10px] text-slate-500 font-mono font-medium tracking-wider uppercase">
-              Institutional Analytics
-            </div>
+            <span className="font-bold text-sm tracking-tight text-white block">
+              QuantPulse
+            </span>
+            <span className="text-[9px] text-slate-500 font-mono block -mt-0.5 tracking-wider uppercase">
+              Analytics Terminal
+            </span>
           </div>
         </Link>
       </div>
 
-      {/* Navigation */}
-      <nav className="p-3 space-y-1 overflow-y-auto flex-1 text-xs font-medium">
-        <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 font-mono">
-          Research Workspaces
+      {/* Navigation Sections */}
+      <div className="p-3 space-y-5 overflow-y-auto flex-1">
+        {NAV_SECTIONS.map((section) => (
+          <div key={section.title}>
+            <div className="px-2 mb-1.5 text-[10px] font-mono uppercase tracking-wider text-slate-500 font-medium">
+              {section.title}
+            </div>
+            <div className="space-y-0.5">
+              {section.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href;
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center justify-between h-9 px-2.5 rounded-lg text-xs transition-colors ${
+                      isActive
+                        ? 'bg-indigo-600/10 text-indigo-300 font-semibold border-l-2 border-indigo-500 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/70 font-normal'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-indigo-400' : 'text-slate-500'}`} />
+                      <span className="truncate">{item.label}</span>
+                    </div>
+                    {item.badge && (
+                      <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-indigo-500/20 text-indigo-300">
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer System Status */}
+      <div className="p-3 border-t border-slate-800/80 bg-slate-950">
+        <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-slate-300 font-medium">Engine Active</span>
+          </div>
+          <span className="font-mono text-[10px] text-slate-500">v1.2</span>
         </div>
-
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href;
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center justify-between px-3 py-2.5 rounded-xl transition-all ${
-                isActive
-                  ? 'bg-sky-500/10 text-sky-400 border border-sky-500/30 font-semibold shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/80'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Icon className={`w-4 h-4 ${isActive ? 'text-sky-400' : 'text-slate-500'}`} />
-                <span>{item.label}</span>
-              </div>
-              {item.badge && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-500/20 text-sky-300">
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Footer Info */}
-      <div className="p-4 border-t border-slate-800/80 bg-slate-950/60">
-        <div className="flex items-center gap-2 text-xs text-slate-400 mb-2">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span className="font-semibold text-slate-300">Deterministic Engine</span>
-        </div>
-        <p className="text-[11px] text-slate-500 leading-tight">
-          Strict mathematical compounding with no look-ahead bias. Net of fees.
-        </p>
       </div>
     </aside>
   );

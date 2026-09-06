@@ -3,7 +3,9 @@
 import React, { useState, useMemo } from 'react';
 import { runMultipleRegression, FactorRegressionResult } from '@/analytics/factors';
 import { CURATED_RETURNS, CURATED_SECURITIES } from '@/data/curatedData';
+import { PageHeader, Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, MetricCard } from '@/components/ui';
 import { TrendingUp, BarChart3, HelpCircle, CheckCircle2 } from 'lucide-react';
+import { formatPercent, formatRatio } from '@/utils/formatters';
 
 export default function FactorsPage() {
   const [targetSymbol, setTargetSymbol] = useState('AVUV');
@@ -59,189 +61,191 @@ export default function FactorsPage() {
   }, [yExcess, xMatrix, factorNames]);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-          Factor Analysis & Systematic Risk Regression
-        </h1>
-        <p className="text-xs md:text-sm text-slate-400">
-          Multi-factor Ordinary Least Squares (OLS) regressions, systematic risk factor loadings, t-statistics, and manager alpha
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Factor Analysis & Systematic Risk Attribution"
+        subtitle="Multi-factor Ordinary Least Squares (OLS) regressions, systematic risk factor loadings, t-statistics, and manager alpha."
+      />
 
-      {/* Selector */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-2xl space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-sky-400" /> Regression Setup
-          </h3>
-          <span className="text-xs font-mono text-slate-400">
-            {regression.observations} Monthly Observations
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-          <div>
-            <label className="block text-slate-400 mb-1 font-medium">Target Fund or ETF</label>
-            <select
-              value={targetSymbol}
-              onChange={(e) => setTargetSymbol(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white focus:outline-none font-mono"
-            >
-              {CURATED_SECURITIES.map((s) => (
-                <option key={s.symbol} value={s.symbol}>
-                  {s.symbol} — {s.name}
-                </option>
-              ))}
-            </select>
+      {/* Regression Configuration */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-emerald-400" />
+              <CardTitle>Model Specification & Target Security</CardTitle>
+            </div>
+            <Badge variant="neutral" className="w-fit font-mono text-[11px]">
+              {regression.observations} Monthly Periods
+            </Badge>
           </div>
+          <CardDescription>
+            Select an asset and academic factor model to isolate market, size, value, and momentum risk exposures
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div>
+              <label className="block text-slate-300 mb-1.5 font-medium">Target Fund or ETF</label>
+              <select
+                value={targetSymbol}
+                onChange={(e) => setTargetSymbol(e.target.value)}
+                className="w-full h-9 bg-slate-950 border border-slate-700 rounded-md px-3 text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+              >
+                {CURATED_SECURITIES.map((s) => (
+                  <option key={s.symbol} value={s.symbol}>
+                    {s.symbol} — {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-slate-400 mb-1 font-medium">Factor Model Specification</label>
-            <select
-              value={modelType}
-              onChange={(e) => setModelType(e.target.value as any)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white focus:outline-none"
-            >
-              <option value="capm">CAPM (1-Factor: Market Beta)</option>
-              <option value="ff3">Fama-French 3-Factor (Market, Size, Value)</option>
-              <option value="carhart4">Carhart 4-Factor (Market, Size, Value, Momentum)</option>
-            </select>
+            <div>
+              <label className="block text-slate-300 mb-1.5 font-medium">Factor Model Framework</label>
+              <select
+                value={modelType}
+                onChange={(e) => setModelType(e.target.value as any)}
+                className="w-full h-9 bg-slate-950 border border-slate-700 rounded-md px-3 text-slate-200 focus:outline-none focus:border-emerald-500"
+              >
+                <option value="capm">Capital Asset Pricing Model (CAPM / 1-Factor)</option>
+                <option value="ff3">Fama-French 3-Factor (Market, Size SMB, Value HML)</option>
+                <option value="carhart4">Carhart 4-Factor (Market, Size, Value, Momentum MOM)</option>
+              </select>
+            </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Regression Summary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-xl space-y-1">
-          <span className="text-xs text-slate-400">R-Squared (Fit)</span>
-          <div className="text-2xl font-bold font-mono text-sky-400">
-            {(regression.rSquared * 100).toFixed(2)}%
-          </div>
-          <span className="text-[11px] text-slate-500">
-            Adj R²: {(regression.adjRSquared * 100).toFixed(2)}%
-          </span>
-        </div>
+        <MetricCard
+          label="R-Squared (Fit)"
+          value={formatPercent(regression.rSquared, 2)}
+          helperText={`Adj R²: ${formatPercent(regression.adjRSquared, 2)}`}
+        />
 
-        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-xl space-y-1">
-          <span className="text-xs text-slate-400">Annualized Alpha</span>
-          <div
-            className={`text-2xl font-bold font-mono ${
-              regression.annualizedAlpha >= 0 ? 'text-emerald-400' : 'text-rose-400'
-            }`}
-          >
-            {(regression.annualizedAlpha * 100).toFixed(2)}%
-          </div>
-          <span className="text-[11px] text-slate-500">
-            Monthly: {(regression.alpha * 100).toFixed(2)}%
-          </span>
-        </div>
+        <MetricCard
+          label="Annualized Alpha (α)"
+          value={formatPercent(regression.annualizedAlpha, 2, true)}
+          change={`${(regression.alpha * 100).toFixed(2)}% / mo`}
+          changeType={regression.annualizedAlpha >= 0 ? 'positive' : 'negative'}
+          helperText="Risk-adjusted excess return"
+        />
 
-        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-xl space-y-1">
-          <span className="text-xs text-slate-400">Alpha t-Statistic</span>
-          <div className="text-2xl font-bold font-mono text-slate-200">
-            {regression.alphaTStat.toFixed(2)}
-          </div>
-          <span className="text-[11px] text-slate-500">
-            p-value: {regression.alphaPValue.toFixed(4)}
-          </span>
-        </div>
+        <MetricCard
+          label="Alpha t-Statistic"
+          value={formatRatio(regression.alphaTStat, 2)}
+          change={regression.alphaPValue < 0.05 ? 'Stat. Significant' : 'Not Significant'}
+          changeType={regression.alphaPValue < 0.05 ? 'positive' : 'neutral'}
+          helperText={`p-value: ${regression.alphaPValue.toFixed(4)}`}
+        />
 
-        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-xl space-y-1">
-          <span className="text-xs text-slate-400">Residual Volatility</span>
-          <div className="text-2xl font-bold font-mono text-slate-300">
-            {(regression.residualVolatility * 100).toFixed(2)}%
-          </div>
-          <span className="text-[11px] text-slate-500">Idiosyncratic active risk</span>
-        </div>
+        <MetricCard
+          label="Residual Volatility"
+          value={formatPercent(regression.residualVolatility, 2)}
+          helperText="Idiosyncratic active risk"
+        />
       </div>
 
       {/* Factor Coefficients Table */}
-      <div className="w-full bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-2xl space-y-3">
-        <div className="mb-2">
-          <h3 className="text-base font-semibold text-white tracking-wide">
-            Factor Coefficients & Significance Table
-          </h3>
-          <p className="text-xs text-slate-400">
-            Factor loadings (Beta), t-statistics, and statistical significance levels
-          </p>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left border-collapse font-mono">
-            <thead>
-              <tr className="border-b border-slate-800 text-slate-400">
-                <th className="py-2.5 px-3">Factor</th>
-                <th className="py-2.5 px-3 text-right">Coefficient (Beta)</th>
-                <th className="py-2.5 px-3 text-right">t-Statistic</th>
-                <th className="py-2.5 px-3 text-right">p-Value</th>
-                <th className="py-2.5 px-3 text-center">Significance</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/40">
-              <tr className="hover:bg-slate-800/30">
-                <td className="py-2.5 px-3 font-semibold text-slate-200">Alpha (Intercept)</td>
-                <td
-                  className={`py-2.5 px-3 text-right font-bold ${
-                    regression.alpha >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                  }`}
-                >
-                  {(regression.alpha * 100).toFixed(3)}%
-                </td>
-                <td className="py-2.5 px-3 text-right text-slate-300">
-                  {regression.alphaTStat.toFixed(2)}
-                </td>
-                <td className="py-2.5 px-3 text-right text-slate-300">
-                  {regression.alphaPValue.toFixed(4)}
-                </td>
-                <td className="py-2.5 px-3 text-center">
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
-                      regression.alphaPValue < 0.05
-                        ? 'bg-emerald-500/20 text-emerald-300'
-                        : 'bg-slate-800 text-slate-400'
+      <Card>
+        <CardHeader>
+          <CardTitle>Factor Coefficients & Significance Table</CardTitle>
+          <CardDescription>
+            Ordinary Least Squares loadings (Beta), t-statistics, p-values, and 95% statistical significance
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto pb-2">
+            <table className="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 text-slate-400 font-medium">
+                  <th className="py-2.5 px-3">Factor Component</th>
+                  <th className="py-2.5 px-3 text-right">Coefficient (Beta)</th>
+                  <th className="py-2.5 px-3 text-right">t-Statistic</th>
+                  <th className="py-2.5 px-3 text-right">p-Value</th>
+                  <th className="py-2.5 px-3 text-center">Significance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/50 font-mono">
+                <tr className="hover:bg-slate-800/20">
+                  <td className="py-2.5 px-3 font-sans font-semibold text-slate-200">
+                    Alpha (Intercept α)
+                  </td>
+                  <td
+                    className={`py-2.5 px-3 text-right font-bold tabular-nums ${
+                      regression.alpha >= 0 ? 'text-emerald-400' : 'text-rose-400'
                     }`}
                   >
-                    {regression.alphaPValue < 0.01
-                      ? 'p < 0.01 ***'
-                      : regression.alphaPValue < 0.05
-                      ? 'p < 0.05 **'
-                      : 'Not Sig'}
-                  </span>
-                </td>
-              </tr>
+                    {formatPercent(regression.alpha, 3, true)}
+                  </td>
+                  <td className="py-2.5 px-3 text-right text-slate-300 tabular-nums">
+                    {regression.alphaTStat.toFixed(2)}
+                  </td>
+                  <td className="py-2.5 px-3 text-right text-slate-300 tabular-nums">
+                    {regression.alphaPValue.toFixed(4)}
+                  </td>
+                  <td className="py-2.5 px-3 text-center font-sans">
+                    {regression.alphaPValue < 0.05 ? (
+                      <Badge variant="success">
+                        {regression.alphaPValue < 0.01 ? 'p < 0.01 ***' : 'p < 0.05 **'}
+                      </Badge>
+                    ) : (
+                      <Badge variant="neutral">Not Sig</Badge>
+                    )}
+                  </td>
+                </tr>
 
-              {factorNames.map((name) => {
-                const beta = regression.betas[name] || 0;
-                const tStat = regression.tStats[name] || 0;
-                const pVal = regression.pValues[name] || 1;
+                {factorNames.map((name) => {
+                  const beta = regression.betas[name] || 0;
+                  const tStat = regression.tStats[name] || 0;
+                  const pVal = regression.pValues[name] || 1;
 
-                return (
-                  <tr key={name} className="hover:bg-slate-800/30">
-                    <td className="py-2.5 px-3 font-semibold text-sky-400">{name}</td>
-                    <td className="py-2.5 px-3 text-right font-bold text-white">
-                      {beta.toFixed(3)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right text-slate-300">{tStat.toFixed(2)}</td>
-                    <td className="py-2.5 px-3 text-right text-slate-300">{pVal.toFixed(4)}</td>
-                    <td className="py-2.5 px-3 text-center">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
-                          pVal < 0.05
-                            ? 'bg-emerald-500/20 text-emerald-300'
-                            : 'bg-slate-800 text-slate-400'
-                        }`}
-                      >
-                        {pVal < 0.01 ? 'p < 0.01 ***' : pVal < 0.05 ? 'p < 0.05 **' : 'Not Sig'}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  return (
+                    <tr key={name} className="hover:bg-slate-800/20">
+                      <td className="py-2.5 px-3 font-sans font-medium text-slate-200">
+                        <span className="text-emerald-400 mr-2">■</span>
+                        {name}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-bold text-white tabular-nums">
+                        {beta >= 0 ? `+${beta.toFixed(3)}` : beta.toFixed(3)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-slate-300 tabular-nums">
+                        {tStat.toFixed(2)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-slate-300 tabular-nums">
+                        {pVal.toFixed(4)}
+                      </td>
+                      <td className="py-2.5 px-3 text-center font-sans">
+                        {pVal < 0.05 ? (
+                          <Badge variant="info">
+                            {pVal < 0.01 ? 'p < 0.01 ***' : 'p < 0.05 **'}
+                          </Badge>
+                        ) : (
+                          <Badge variant="neutral">Not Sig</Badge>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1">
+            <p className="font-semibold text-slate-300">Factor Interpretation:</p>
+            <p>
+              • <strong className="text-slate-200">MKT-RF:</strong> Measures systematic broad equity market sensitivity. A beta &gt; 1.0 indicates higher volatility than the benchmark.
+            </p>
+            <p>
+              • <strong className="text-slate-200">SMB (Small Minus Big):</strong> Positive exposure indicates tilting toward small-cap equities.
+            </p>
+            <p>
+              • <strong className="text-slate-200">HML (High Minus Low):</strong> Positive exposure indicates value orientation; negative indicates growth orientation.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -5,13 +5,13 @@ import Link from 'next/link';
 import {
   ArrowRight,
   TrendingUp,
-  Shield,
+  ShieldCheck,
   Shuffle,
   PieChart,
   BarChart3,
   Sliders,
-  CheckCircle2,
-  Layers
+  Layers,
+  Compass,
 } from 'lucide-react';
 import { runBacktest, AssetPeriodReturn, BacktestResult } from '@/analytics/backtest';
 import { CURATED_DATES, CURATED_RETURNS } from '@/data/curatedData';
@@ -19,6 +19,11 @@ import { GrowthChart } from '@/components/charts/GrowthChart';
 import { DrawdownChart } from '@/components/charts/DrawdownChart';
 import { SummaryMetricsCard } from '@/components/metrics/SummaryMetricsCard';
 import { AiPortfolioAnalyst } from '@/components/ai/AiPortfolioAnalyst';
+import { PageHeader, SectionHeader } from '@/components/ui/PageHeader';
+import { MetricCard } from '@/components/ui/MetricCard';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { formatPercent, formatRatio } from '@/utils/formatters';
 
 // Convert curated data to aligned monthly period data
 const ALIGNED_PERIOD_DATA: AssetPeriodReturn[] = CURATED_DATES.map((date, idx) => {
@@ -42,7 +47,7 @@ export default function DashboardPage() {
       { symbol: 'TLT', weight: 0.10 },
       { symbol: 'GLD', weight: 0.10 },
     ],
-    color: '#38bdf8', // Sky
+    color: '#6366f1', // Indigo
   });
 
   const [portfolioB] = useState({
@@ -51,7 +56,7 @@ export default function DashboardPage() {
       { symbol: 'VTI', weight: 0.70 },
       { symbol: 'BND', weight: 0.30 },
     ],
-    color: '#34d399', // Emerald
+    color: '#10b981', // Emerald
   });
 
   const [portfolioC] = useState({
@@ -144,92 +149,126 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-900/90 to-sky-950/40 border border-slate-800 rounded-2xl p-6 md:p-8 relative overflow-hidden shadow-2xl">
-        <div className="max-w-3xl space-y-3 z-10 relative">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 text-xs font-mono font-medium">
-            <CheckCircle2 className="w-3.5 h-3.5" /> Institutional Portfolio Engine Active
-          </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
-            Original Modern Investment Analytics
-          </h1>
-          <p className="text-slate-300 text-sm md:text-base leading-relaxed">
-            Professional multi-asset backtesting, Markowitz efficient frontier optimization, Equal Risk Parity, Monte Carlo ruin modeling, and grounded AI portfolio intelligence.
-          </p>
-          <div className="pt-2 flex flex-wrap items-center gap-3">
-            <Link
-              href="/backtest"
-              className="px-5 py-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-sky-500/20 transition-all"
-            >
-              Open Portfolio Lab <ArrowRight className="w-4 h-4" />
-            </Link>
-            <Link
-              href="/optimization"
-              className="px-4 py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs border border-slate-700 transition-all flex items-center gap-2"
-            >
-              <PieChart className="w-4 h-4 text-teal-400" /> Optimize Frontiers
-            </Link>
-            <Link
-              href="/monte-carlo"
-              className="px-4 py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs border border-slate-700 transition-all flex items-center gap-2"
-            >
-              <Shuffle className="w-4 h-4 text-amber-400" /> Monte Carlo Lab
-            </Link>
-          </div>
-        </div>
+      {/* Page Header */}
+      <PageHeader
+        title="Portfolio Research Terminal"
+        description="Multi-asset quantitative backtesting, Markowitz efficient frontier optimization, and macro risk analysis"
+        badge={<Badge variant="info">Live & Curated Store</Badge>}
+      >
+        <Link href="/backtest">
+          <Button variant="primary" icon={<ArrowRight className="w-3.5 h-3.5" />}>
+            Open Backtest Lab
+          </Button>
+        </Link>
+        <Link href="/optimization">
+          <Button variant="secondary" icon={<PieChart className="w-3.5 h-3.5" />}>
+            Optimize Frontier
+          </Button>
+        </Link>
+      </PageHeader>
+
+      {/* Top Level Financial Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard
+          label="S&P 500 Benchmark (SPY)"
+          value={formatPercent(0.1042, 2)}
+          subtext="Annualized Return (2007–2026)"
+          change={0.1042}
+          accentColor="#94a3b8"
+        />
+        <MetricCard
+          label="Growth Tilt (P1)"
+          value={formatPercent(resultA.summary.cagr, 2)}
+          subtext={`Sharpe ${formatRatio(resultA.summary.sharpeRatio, 2)} • Vol ${formatPercent(resultA.summary.annualizedVolatility, 1)}`}
+          change={resultA.summary.cagr}
+          accentColor="#6366f1"
+        />
+        <MetricCard
+          label="Classic 70/30 (P2)"
+          value={formatPercent(resultB.summary.cagr, 2)}
+          subtext={`Sharpe ${formatRatio(resultB.summary.sharpeRatio, 2)} • Max DD ${formatPercent(resultB.summary.maxDrawdown, 1)}`}
+          change={resultB.summary.cagr}
+          accentColor="#10b981"
+        />
+        <MetricCard
+          label="Permanent Portfolio (P3)"
+          value={formatPercent(resultC.summary.cagr, 2)}
+          subtext={`Downside Buffer • Max DD ${formatPercent(resultC.summary.maxDrawdown, 1)}`}
+          change={resultC.summary.cagr}
+          accentColor="#f59e0b"
+        />
       </div>
 
-      {/* Market Monitor - Benchmark Portfolios */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Layers className="w-5 h-5 text-sky-400" /> Benchmark Portfolio Monitor
-          </h2>
-          <span className="text-xs text-slate-500 font-mono">2007 – 2026 Live Historical Simulation</span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-xl space-y-2">
-            <div className="flex justify-between items-center text-xs">
-              <span className="font-semibold text-slate-200">Portfolio A (Growth Tilt)</span>
-              <span className="font-mono text-sky-400 font-bold">{(resultA.summary.cagr * 100).toFixed(1)}% CAGR</span>
+      {/* Analytical Workspaces Jump Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Link
+          href="/backtest"
+          className="group rounded-xl border border-slate-800 bg-slate-900/70 hover:bg-slate-850 p-4 transition-all hover:border-slate-700 shadow-sm"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+              <BarChart3 className="w-4 h-4" />
             </div>
-            <div className="text-[11px] text-slate-400">SPY 50%, QQQ 20%, AVUV 10%, TLT 10%, GLD 10%</div>
-            <div className="flex justify-between text-xs font-mono pt-2 border-t border-slate-800/60">
-              <span className="text-slate-400">Sharpe: <strong className="text-white">{resultA.summary.sharpeRatio.toFixed(2)}</strong></span>
-              <span className="text-slate-400">Max DD: <strong className="text-rose-400">{(resultA.summary.maxDrawdown * 100).toFixed(1)}%</strong></span>
-            </div>
+            <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
           </div>
+          <h3 className="text-sm font-semibold text-slate-200">Portfolio Backtester</h3>
+          <p className="text-xs text-slate-400 mt-1">
+            Compare up to 3 custom portfolios with calendar & threshold rebalancing and cash flows.
+          </p>
+        </Link>
 
-          <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-xl space-y-2">
-            <div className="flex justify-between items-center text-xs">
-              <span className="font-semibold text-slate-200">Portfolio B (Classic 70/30)</span>
-              <span className="font-mono text-emerald-400 font-bold">{(resultB.summary.cagr * 100).toFixed(1)}% CAGR</span>
+        <Link
+          href="/optimization"
+          className="group rounded-xl border border-slate-800 bg-slate-900/70 hover:bg-slate-850 p-4 transition-all hover:border-slate-700 shadow-sm"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2 rounded-lg bg-teal-500/10 text-teal-400">
+              <PieChart className="w-4 h-4" />
             </div>
-            <div className="text-[11px] text-slate-400">VTI 70%, BND 30%</div>
-            <div className="flex justify-between text-xs font-mono pt-2 border-t border-slate-800/60">
-              <span className="text-slate-400">Sharpe: <strong className="text-white">{resultB.summary.sharpeRatio.toFixed(2)}</strong></span>
-              <span className="text-slate-400">Max DD: <strong className="text-rose-400">{(resultB.summary.maxDrawdown * 100).toFixed(1)}%</strong></span>
-            </div>
+            <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-teal-400 group-hover:translate-x-0.5 transition-all" />
           </div>
+          <h3 className="text-sm font-semibold text-slate-200">MPT & Risk Parity</h3>
+          <p className="text-xs text-slate-400 mt-1">
+            Markowitz Efficient Frontier tracing, Equal Risk Contribution (ERC), and Black-Litterman tilt.
+          </p>
+        </Link>
 
-          <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-xl space-y-2">
-            <div className="flex justify-between items-center text-xs">
-              <span className="font-semibold text-slate-200">Portfolio C (Permanent)</span>
-              <span className="font-mono text-amber-400 font-bold">{(resultC.summary.cagr * 100).toFixed(1)}% CAGR</span>
+        <Link
+          href="/monte-carlo"
+          className="group rounded-xl border border-slate-800 bg-slate-900/70 hover:bg-slate-850 p-4 transition-all hover:border-slate-700 shadow-sm"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
+              <Shuffle className="w-4 h-4" />
             </div>
-            <div className="text-[11px] text-slate-400">VTI 25%, TLT 25%, GLD 25%, BIL 25%</div>
-            <div className="flex justify-between text-xs font-mono pt-2 border-t border-slate-800/60">
-              <span className="text-slate-400">Sharpe: <strong className="text-white">{resultC.summary.sharpeRatio.toFixed(2)}</strong></span>
-              <span className="text-slate-400">Max DD: <strong className="text-emerald-400">{(resultC.summary.maxDrawdown * 100).toFixed(1)}%</strong></span>
-            </div>
+            <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
           </div>
-        </div>
+          <h3 className="text-sm font-semibold text-slate-200">Monte Carlo & Longevity</h3>
+          <p className="text-xs text-slate-400 mt-1">
+            5,000-path bootstrap simulation with dynamic Guyton-Klinger withdrawal guardrails.
+          </p>
+        </Link>
+
+        <Link
+          href="/tactical"
+          className="group rounded-xl border border-slate-800 bg-slate-900/70 hover:bg-slate-850 p-4 transition-all hover:border-slate-700 shadow-sm"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400">
+              <Compass className="w-4 h-4" />
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-all" />
+          </div>
+          <h3 className="text-sm font-semibold text-slate-200">Tactical Strategy Lab</h3>
+          <p className="text-xs text-slate-400 mt-1">
+            Antonacci Dual Momentum rules, 10-month SMA trend filters, and volatility scaling.
+          </p>
+        </Link>
       </div>
 
       {/* Visual Analytics */}
       <div className="space-y-6">
-        <GrowthChart series={growthSeries} height={360} />
+        <GrowthChart series={growthSeries} height={340} />
         <DrawdownChart series={drawdownSeries} height={260} />
       </div>
 

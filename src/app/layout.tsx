@@ -1,7 +1,14 @@
 import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'QuantPulse | Institutional Investment Analytics & Backtesting Platform',
@@ -14,12 +21,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-slate-950 text-slate-100 flex min-h-screen">
+    <html lang="en" className={`dark ${inter.variable}`}>
+      <body className="bg-slate-950 text-slate-100 font-sans antialiased flex min-h-screen selection:bg-indigo-500/30 selection:text-indigo-200">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0">
           <Header />
-          <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto space-y-8 overflow-y-auto">
+          <main className="flex-1 px-4 py-6 md:px-8 md:py-8 max-w-[1600px] w-full mx-auto space-y-8 overflow-y-auto">
             {children}
           </main>
         </div>

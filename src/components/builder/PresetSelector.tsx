@@ -21,7 +21,7 @@ export const PORTFOLIO_PRESETS: PortfolioPreset[] = [
   },
   {
     id: 'ivy-portfolio',
-    name: 'Mebane Faber Ivy Portfolio',
+    name: 'Ivy Portfolio',
     description: 'Equal 20% exposure across US stocks, international, bonds, real estate, and gold',
     assets: [
       { symbol: 'VTI', weight: 20 },
@@ -33,7 +33,7 @@ export const PORTFOLIO_PRESETS: PortfolioPreset[] = [
   },
   {
     id: 'permanent-portfolio',
-    name: 'Harry Browne Permanent Portfolio',
+    name: 'Permanent Portfolio',
     description: 'Designed for resilience across prosperity, deflation, recession, and inflation',
     assets: [
       { symbol: 'VTI', weight: 25 },
@@ -44,7 +44,7 @@ export const PORTFOLIO_PRESETS: PortfolioPreset[] = [
   },
   {
     id: 'all-weather',
-    name: 'Ray Dalio All Weather',
+    name: 'All Weather',
     description: 'Risk-balanced portfolio designed to weather all economic regimes',
     assets: [
       { symbol: 'VTI', weight: 30 },
@@ -55,7 +55,7 @@ export const PORTFOLIO_PRESETS: PortfolioPreset[] = [
   },
   {
     id: 'core-four',
-    name: 'Rick Ferri Core Four',
+    name: 'Core Four',
     description: 'Total market US equities, international equities, aggregate bonds, and REITs',
     assets: [
       { symbol: 'VTI', weight: 48 },
@@ -66,7 +66,7 @@ export const PORTFOLIO_PRESETS: PortfolioPreset[] = [
   },
   {
     id: 'tech-growth',
-    name: 'Aggressive Tech Growth',
+    name: 'Tech Growth',
     description: 'High-growth tech tilt balanced with long duration Treasuries and Gold',
     assets: [
       { symbol: 'QQQ', weight: 50 },
@@ -80,19 +80,23 @@ export const PORTFOLIO_PRESETS: PortfolioPreset[] = [
 
 export function PresetSelector({ onSelect }: { onSelect: (preset: PortfolioPreset) => void }) {
   return (
-    <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-      <span className="text-slate-400 font-medium whitespace-nowrap">Load Preset:</span>
-      {PORTFOLIO_PRESETS.map((p) => (
-        <button
-          key={p.id}
-          type="button"
-          onClick={() => onSelect(p)}
-          title={p.description}
-          className="whitespace-nowrap px-2.5 py-1 bg-slate-800/80 hover:bg-sky-500/20 hover:border-sky-500/40 border border-slate-700/60 rounded-md text-slate-300 hover:text-sky-300 transition-all font-medium"
-        >
-          {p.name}
-        </button>
-      ))}
+    <div className="flex items-center gap-2 overflow-x-auto text-xs py-0.5">
+      <span className="text-[11px] font-mono uppercase tracking-wider text-slate-500 whitespace-nowrap">
+        Presets:
+      </span>
+      <div className="flex items-center gap-1.5">
+        {PORTFOLIO_PRESETS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => onSelect(p)}
+            title={p.description}
+            className="whitespace-nowrap h-7 px-2.5 bg-slate-900 hover:bg-indigo-600/10 hover:border-indigo-500/40 border border-slate-800 rounded-md text-slate-300 hover:text-indigo-300 transition-colors text-[11px] font-medium"
+          >
+            {p.name}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

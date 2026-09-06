@@ -7,8 +7,12 @@ import { calculateMaxDrawdown } from '@/analytics/drawdowns';
 import { calculateAnnualizedVolatility } from '@/analytics/statistics';
 import { CURATED_DATES, CURATED_RETURNS } from '@/data/curatedData';
 import { GrowthChart } from '@/components/charts/GrowthChart';
-import { DrawdownChart } from '@/components/charts/DrawdownChart';
-import { Compass, Zap, Shield, TrendingUp, Sliders } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
+import { MetricCard } from '@/components/ui/MetricCard';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { formatPercent, formatRatio } from '@/utils/formatters';
 
 export default function TacticalPage() {
   const [strategyType, setStrategyType] = useState<'dual_momentum' | 'moving_average'>('dual_momentum');
@@ -105,181 +109,198 @@ export default function TacticalPage() {
   }, [strategyType, lookbackMonths, topHoldings, smaWindow, safeAsset, dates, prices]);
 
   const growthSeries = [
-    { id: 'strat', name: 'Tactical Strategy', color: '#38bdf8', data: strategyGrowth },
+    { id: 'strat', name: 'Tactical Strategy', color: '#6366f1', data: strategyGrowth },
     { id: 'bench', name: 'SPY (Buy & Hold)', color: '#94a3b8', data: benchmarkGrowth },
   ];
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-          Tactical Asset Allocation Strategy Laboratory
-        </h1>
-        <p className="text-xs md:text-sm text-slate-400">
-          Backtest Gary Antonacci Dual Momentum rotation, trend-following moving average filters, and defensive cash switches
-        </p>
-      </div>
+      {/* Page Header */}
+      <PageHeader
+        title="Tactical Strategy & Momentum Lab"
+        description="Backtest Gary Antonacci Dual Momentum cross-asset rotation, 10-month SMA trend following, and cash defense switches."
+        badge={<Badge variant="info">Tactical Engine</Badge>}
+      />
 
-      {/* Configuration card */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-2xl space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Sliders className="w-4 h-4 text-sky-400" /> Strategy Configuration
-          </h3>
+      {/* Strategy Selector & Parameters Card */}
+      <Card className="shadow-md">
+        <CardHeader>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setStrategyType('dual_momentum')}
+              className={`h-8 px-3.5 rounded-lg text-xs font-medium transition-colors ${
+                strategyType === 'dual_momentum'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              Antonacci Dual Momentum
+            </button>
+            <button
+              onClick={() => setStrategyType('moving_average')}
+              className={`h-8 px-3.5 rounded-lg text-xs font-medium transition-colors ${
+                strategyType === 'moving_average'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              10-Month Moving Average Trend
+            </button>
+          </div>
           <span className="text-xs font-mono text-slate-400">
             Universe: {universe.join(', ')}
           </span>
-        </div>
+        </CardHeader>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-          <div>
-            <label className="block text-slate-400 mb-1 font-medium">Tactical Model</label>
-            <select
-              value={strategyType}
-              onChange={(e) => setStrategyType(e.target.value as any)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white focus:outline-none"
-            >
-              <option value="dual_momentum">Gary Antonacci Dual Momentum</option>
-              <option value="moving_average">Moving Average Trend Following</option>
-            </select>
-          </div>
-
-          {strategyType === 'dual_momentum' ? (
-            <>
+        <div className="p-4 sm:p-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+            {strategyType === 'dual_momentum' ? (
+              <>
+                <div>
+                  <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+                    Lookback Period
+                  </label>
+                  <select
+                    value={lookbackMonths}
+                    onChange={(e) => setLookbackMonths(parseInt(e.target.value, 10))}
+                    className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-200 focus:border-indigo-500 focus:outline-none font-mono"
+                  >
+                    <option value="6">6 Months</option>
+                    <option value="12">12 Months (Canonical)</option>
+                    <option value="18">18 Months</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+                    Top Momentum Holdings (N)
+                  </label>
+                  <select
+                    value={topHoldings}
+                    onChange={(e) => setTopHoldings(parseInt(e.target.value, 10))}
+                    className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-200 focus:border-indigo-500 focus:outline-none font-mono"
+                  >
+                    <option value="1">Top 1 Asset (Concentrated)</option>
+                    <option value="2">Top 2 Assets (Balanced)</option>
+                    <option value="3">Top 3 Assets</option>
+                  </select>
+                </div>
+              </>
+            ) : (
               <div>
-                <label className="block text-slate-400 mb-1 font-medium">Momentum Lookback (Months)</label>
+                <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+                  SMA Window
+                </label>
                 <select
-                  value={lookbackMonths}
-                  onChange={(e) => setLookbackMonths(parseInt(e.target.value, 10))}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white focus:outline-none font-mono"
+                  value={smaWindow}
+                  onChange={(e) => setSmaWindow(parseInt(e.target.value, 10))}
+                  className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-200 focus:border-indigo-500 focus:outline-none font-mono"
                 >
-                  <option value="3">3 Months</option>
-                  <option value="6">6 Months</option>
-                  <option value="12">12 Months (Standard)</option>
+                  <option value="5">5 Months (Fast)</option>
+                  <option value="10">10 Months (Faber 200-Day Equivalent)</option>
+                  <option value="12">12 Months</option>
                 </select>
               </div>
+            )}
 
-              <div>
-                <label className="block text-slate-400 mb-1 font-medium">Top N Assets Held</label>
-                <select
-                  value={topHoldings}
-                  onChange={(e) => setTopHoldings(parseInt(e.target.value, 10))}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white focus:outline-none font-mono"
-                >
-                  <option value="1">Top 1 Asset (Concentrated)</option>
-                  <option value="2">Top 2 Assets (Equal Weight)</option>
-                  <option value="3">Top 3 Assets</option>
-                </select>
-              </div>
-            </>
-          ) : (
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">SMA Window (Months)</label>
+              <label className="block text-slate-400 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-medium">
+                Defensive Out-of-Market Asset
+              </label>
               <select
-                value={smaWindow}
-                onChange={(e) => setSmaWindow(parseInt(e.target.value, 10))}
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white focus:outline-none font-mono"
+                value={safeAsset}
+                onChange={(e) => setSafeAsset(e.target.value)}
+                className="w-full h-9 bg-slate-950 border border-slate-800 rounded-lg px-3 text-slate-200 focus:border-indigo-500 focus:outline-none font-mono"
               >
-                <option value="5">5-Month SMA</option>
-                <option value="10">10-Month SMA (200-Day Proxy)</option>
-                <option value="12">12-Month SMA</option>
+                <option value="BND">BND (Total Bond Market)</option>
+                <option value="BIL">BIL (1-3M Treasury / Cash)</option>
               </select>
             </div>
-          )}
-
-          <div>
-            <label className="block text-slate-400 mb-1 font-medium">Defensive Safety Asset</label>
-            <select
-              value={safeAsset}
-              onChange={(e) => setSafeAsset(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white focus:outline-none font-mono"
-            >
-              <option value="BND">BND (Total Bond Market)</option>
-              <option value="BIL">BIL (Cash / 1-3M T-Bill)</option>
-            </select>
           </div>
         </div>
-      </div>
+      </Card>
 
-      {/* KPI Comparison Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-xl space-y-1">
-          <span className="text-xs text-slate-400">Strategy CAGR</span>
-          <div className="text-2xl font-bold font-mono text-sky-400">
-            {(summary.stratCAGR * 100).toFixed(2)}%
-          </div>
-          <span className="text-[11px] text-slate-500">Benchmark: {(summary.benchCAGR * 100).toFixed(2)}%</span>
-        </div>
-
-        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-xl space-y-1">
-          <span className="text-xs text-slate-400">Max Drawdown</span>
-          <div className="text-2xl font-bold font-mono text-rose-400">
-            {(summary.stratMDD * 100).toFixed(2)}%
-          </div>
-          <span className="text-[11px] text-slate-500">Benchmark: {(summary.benchMDD * 100).toFixed(2)}%</span>
-        </div>
-
-        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-xl space-y-1">
-          <span className="text-xs text-slate-400">Annualized Volatility</span>
-          <div className="text-2xl font-bold font-mono text-slate-200">
-            {(summary.stratVol * 100).toFixed(2)}%
-          </div>
-          <span className="text-[11px] text-slate-500">Benchmark: {(summary.benchVol * 100).toFixed(2)}%</span>
-        </div>
-
-        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-xl space-y-1">
-          <span className="text-xs text-slate-400">Sharpe Ratio</span>
-          <div className="text-2xl font-bold font-mono text-emerald-400">
-            {summary.stratSharpe.toFixed(2)}
-          </div>
-          <span className="text-[11px] text-slate-500">Benchmark: {summary.benchSharpe.toFixed(2)}</span>
-        </div>
+      {/* KPI Comparative Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard
+          label="Strategy CAGR"
+          value={formatPercent(summary.stratCAGR, 2)}
+          subtext={`vs SPY Benchmark ${formatPercent(summary.benchCAGR, 2)}`}
+          change={summary.stratCAGR - summary.benchCAGR}
+          accentColor="#6366f1"
+        />
+        <MetricCard
+          label="Strategy Volatility"
+          value={formatPercent(summary.stratVol, 2)}
+          subtext={`vs SPY Benchmark ${formatPercent(summary.benchVol, 2)}`}
+          trend={summary.stratVol < summary.benchVol ? 'up' : 'down'}
+          accentColor="#10b981"
+        />
+        <MetricCard
+          label="Strategy Sharpe Ratio"
+          value={formatRatio(summary.stratSharpe, 2)}
+          subtext={`vs SPY Benchmark ${formatRatio(summary.benchSharpe, 2)}`}
+          change={summary.stratSharpe - summary.benchSharpe}
+          accentColor="#6366f1"
+        />
+        <MetricCard
+          label="Max Drawdown"
+          value={formatPercent(summary.stratMDD, 2)}
+          subtext={`vs SPY Benchmark ${formatPercent(summary.benchMDD, 2)}`}
+          accentColor="#f59e0b"
+        />
       </div>
 
       {/* Growth Chart */}
-      <GrowthChart series={growthSeries} height={360} />
+      <GrowthChart series={growthSeries} height={350} />
 
-      {/* Historical Signals Table */}
-      <div className="w-full bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-2xl space-y-3">
-        <div className="mb-2">
-          <h3 className="text-base font-semibold text-white tracking-wide">Recent Tactical Allocation History</h3>
-          <p className="text-xs text-slate-400">Most recent monthly position reallocations</p>
-        </div>
+      {/* Recent Tactical Signals Table */}
+      <Card className="shadow-md">
+        <CardHeader>
+          <div>
+            <CardTitle>Recent Monthly Tactical Allocations & Signals</CardTitle>
+            <CardDescription>Execution history over the past 12 months</CardDescription>
+          </div>
+        </CardHeader>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left border-collapse font-mono">
+          <table className="w-full text-xs text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-800 text-slate-400">
-                <th className="py-2 px-3">Date</th>
-                <th className="py-2 px-3">Active Position(s)</th>
-                <th className="py-2 px-3 text-right">Cash Weight</th>
+              <tr className="border-b border-slate-800/80 text-[10px] uppercase font-mono tracking-wider text-slate-400 bg-slate-950/40">
+                <th className="py-2.5 px-4">Period</th>
+                <th className="py-2.5 px-4">Target Regime</th>
+                <th className="py-2.5 px-4">Selected Assets & Weights</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/40">
-              {tradeLog.map((sig, i) => (
-                <tr key={i} className="hover:bg-slate-800/30">
-                  <td className="py-2 px-3 font-semibold text-slate-300">{sig.date}</td>
-                  <td className="py-2 px-3">
-                    <div className="flex flex-wrap gap-1.5">
-                      {Object.entries(sig.selectedAssets).map(([sym, w]) => (
-                        <span
-                          key={sym}
-                          className="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[11px] font-bold"
-                        >
-                          {sym}: {(w * 100).toFixed(0)}%
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="py-2 px-3 text-right text-slate-400">
-                    {(sig.cashWeight * 100).toFixed(0)}%
-                  </td>
-                </tr>
-              ))}
+            <tbody className="divide-y divide-slate-800/40 font-mono text-[12px]">
+              {tradeLog.map((log) => {
+                const isDefensive = Object.keys(log.selectedAssets).includes(safeAsset);
+                return (
+                  <tr key={log.date} className="hover:bg-slate-850/40 transition-colors">
+                    <td className="py-2 px-4 text-slate-300 font-semibold">{log.date.slice(0, 7)}</td>
+                    <td className="py-2 px-4">
+                      <Badge variant={isDefensive ? 'warning' : 'success'} size="sm">
+                        {isDefensive ? 'Defensive Mode' : 'Offensive Momentum'}
+                      </Badge>
+                    </td>
+                    <td className="py-2 px-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {Object.entries(log.selectedAssets).map(([sym, w]) => (
+                          <span
+                            key={sym}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700/60 font-mono text-xs"
+                          >
+                            <strong>{sym}</strong> {formatPercent(w, 0)}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }
