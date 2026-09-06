@@ -15,6 +15,12 @@ import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Ca
 import { Badge } from '@/components/ui/Badge';
 import { formatPercent, formatRatio } from '@/utils/formatters';
 
+const CORE_TICKERS = [
+  'SPY', 'QQQ', 'VTI', 'BND',
+  'AGG', 'TLT', 'GLD', 'VNQ',
+  'VXUS', 'EFA', 'EEM', 'BIL',
+];
+
 export default function OptimizationPage() {
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>([
     'SPY',
@@ -116,10 +122,11 @@ export default function OptimizationPage() {
   };
 
   return (
-    <div className="space-y-8">
-      {/* Page Header */}
+    <div className="space-y-6 sm:space-y-8 max-w-full">
+      {/* Page Header with intentional typography hierarchy */}
       <PageHeader
-        title="Portfolio Optimization & Efficient Frontier"
+        title="Portfolio Optimization"
+        subtitle="Efficient Frontier"
         description="Markowitz Modern Portfolio Theory (MPT), Tangency Sharpe maximization, Minimum Variance, and Equal Risk Contribution (ERC)"
         badge={<Badge variant="info">Markowitz & Risk Parity Solvers</Badge>}
       />
@@ -127,45 +134,52 @@ export default function OptimizationPage() {
       {/* Universe Selection & Constraints */}
       <Card className="shadow-xs border-slate-200 bg-white">
         <CardHeader>
-          <div>
-            <CardTitle className="text-slate-900">Asset Universe & Allocation Constraints</CardTitle>
-            <CardDescription className="text-slate-500">
-              Toggle available assets and adjust single-asset concentration limits
-            </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+            <CardTitle className="text-slate-900 text-sm sm:text-base font-semibold">
+              Asset Universe & Allocation Constraints
+            </CardTitle>
+            <span className="text-xs text-slate-500 font-mono">
+              {selectedSymbols.length} Assets Active
+            </span>
           </div>
-          <span className="text-xs text-slate-500 font-mono">
-            {selectedSymbols.length} Assets Active
-          </span>
+          <CardDescription className="text-slate-500 text-xs mt-0.5">
+            Toggle available assets and adjust single-asset concentration limits
+          </CardDescription>
         </CardHeader>
 
-        <div className="p-4 sm:p-5 space-y-4">
-          {/* Ticker chips */}
-          <div className="flex flex-wrap gap-1.5">
-            {CURATED_SECURITIES.slice(0, 12).map((sec) => {
-              const isSelected = selectedSymbols.includes(sec.symbol);
+        <div className="p-4 sm:p-5 space-y-5">
+          {/* Ticker chips: proper 36px tap targets, 8px gap, wrap naturally */}
+          <div className="flex flex-wrap gap-2">
+            {CORE_TICKERS.map((sym) => {
+              const isSelected = selectedSymbols.includes(sym);
+              const sec = CURATED_SECURITIES.find((s) => s.symbol === sym);
               return (
                 <button
-                  key={sec.symbol}
+                  key={sym}
                   type="button"
-                  onClick={() => toggleSymbol(sec.symbol)}
-                  className={`h-8 px-3 rounded-lg text-xs font-mono font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  onClick={() => toggleSymbol(sym)}
+                  className={`h-9 px-3.5 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer select-none ${
                     isSelected
                       ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-xs font-semibold'
                       : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
-                  <span className="font-bold">{sec.symbol}</span>
-                  <span className="text-[10px] text-slate-400 font-sans hidden sm:inline">({sec.assetClass})</span>
+                  <span className="font-bold">{sym}</span>
+                  {sec && (
+                    <span className="text-[10px] text-slate-400 font-sans hidden sm:inline">
+                      ({sec.assetClass.split(' ')[0]})
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
 
-          {/* Constraints Sliders */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 text-xs border-t border-slate-100">
+          {/* Constraints Sliders: Consistent spacing, ~16px separation, clean labels */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 pt-3 border-t border-slate-100">
             <div>
-              <div className="flex justify-between mb-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-600 font-semibold">
-                <span>Max Single Asset Weight</span>
+              <div className="flex justify-between mb-2 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                <span className="text-slate-600">Max Single-Asset Weight</span>
                 <span className="text-slate-900 font-bold">{formatPercent(maxWeight, 0)}</span>
               </div>
               <input
@@ -175,13 +189,13 @@ export default function OptimizationPage() {
                 step="0.05"
                 value={maxWeight}
                 onChange={(e) => setMaxWeight(parseFloat(e.target.value))}
-                className="w-full h-1.5 bg-slate-200 rounded accent-blue-600 cursor-pointer"
+                className="w-full cursor-pointer"
               />
             </div>
 
             <div>
-              <div className="flex justify-between mb-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-600 font-semibold">
-                <span>Min Single Asset Weight</span>
+              <div className="flex justify-between mb-2 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                <span className="text-slate-600">Min Single-Asset Weight</span>
                 <span className="text-slate-900 font-bold">{formatPercent(minWeight, 0)}</span>
               </div>
               <input
@@ -191,13 +205,13 @@ export default function OptimizationPage() {
                 step="0.01"
                 value={minWeight}
                 onChange={(e) => setMinWeight(parseFloat(e.target.value))}
-                className="w-full h-1.5 bg-slate-200 rounded accent-blue-600 cursor-pointer"
+                className="w-full cursor-pointer"
               />
             </div>
 
             <div>
-              <div className="flex justify-between mb-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-600 font-semibold">
-                <span>Assumed Risk-Free Rate</span>
+              <div className="flex justify-between mb-2 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                <span className="text-slate-600">Assumed Risk-Free Rate</span>
                 <span className="text-slate-900 font-bold">{formatPercent(riskFreeRate, 1)}</span>
               </div>
               <input
@@ -207,7 +221,7 @@ export default function OptimizationPage() {
                 step="0.005"
                 value={riskFreeRate}
                 onChange={(e) => setRiskFreeRate(parseFloat(e.target.value))}
-                className="w-full h-1.5 bg-slate-200 rounded accent-blue-600 cursor-pointer"
+                className="w-full cursor-pointer"
               />
             </div>
           </div>
@@ -220,17 +234,17 @@ export default function OptimizationPage() {
         maxSharpePortfolio={maxSharpe}
         minVarPortfolio={minVar}
         individualAssets={individualAssets}
-        height={380}
+        height={320}
       />
 
       {/* Optimal Allocations Comparison */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
         {/* Tangency / Max Sharpe */}
         <Card className="shadow-xs border-slate-200 bg-white">
           <CardHeader>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
-              <CardTitle className="text-slate-900">Max Sharpe (Tangency)</CardTitle>
+              <CardTitle className="text-slate-900 text-sm font-semibold">Max Sharpe (Tangency)</CardTitle>
             </div>
             <Badge variant="success">Sharpe {formatRatio(maxSharpe.sharpeRatio, 2)}</Badge>
           </CardHeader>
@@ -267,7 +281,7 @@ export default function OptimizationPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-              <CardTitle className="text-slate-900">Minimum Volatility</CardTitle>
+              <CardTitle className="text-slate-900 text-sm font-semibold">Minimum Volatility</CardTitle>
             </div>
             <Badge variant="info">Vol {formatPercent(minVar.volatility, 1)}</Badge>
           </CardHeader>
@@ -304,7 +318,7 @@ export default function OptimizationPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-              <CardTitle className="text-slate-900">Equal Risk Parity (ERC)</CardTitle>
+              <CardTitle className="text-slate-900 text-sm font-semibold">Equal Risk Parity (ERC)</CardTitle>
             </div>
             <Badge variant="warning">Vol {formatPercent(riskParity.portfolioVolatility, 1)}</Badge>
           </CardHeader>

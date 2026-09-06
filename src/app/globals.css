@@ -19,17 +19,62 @@
     --accent-amber: #d97706;
   }
 
+  * {
+    border-color: #e2e8f0;
+  }
+
   body {
     background-color: var(--background);
     color: var(--foreground);
     font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     letter-spacing: -0.011em;
-    overflow-x: hidden;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
   }
 
   /* Enforce tabular numbers across financial tables, inputs, and badges */
   .tabular-nums, table, [data-tabular="true"], input[type="number"] {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Accessible touch-friendly modern range sliders */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 9999px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 9999px;
+    background: #2563eb;
+    border: 2px solid #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+    transition: transform 0.1s ease;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover,
+  input[type="range"]::-webkit-slider-thumb:active {
+    transform: scale(1.15);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 9999px;
+    background: #2563eb;
+    border: 2px solid #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    cursor: pointer;
   }
 }
 

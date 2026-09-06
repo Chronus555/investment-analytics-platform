@@ -66,8 +66,8 @@ export function Sidebar() {
     <>
       {/* Brand Header */}
       <div className="h-14 px-5 border-b border-slate-100 flex items-center justify-between shrink-0">
-        <Link href="/" onClick={closeMobile} className="flex items-center gap-2.5 group">
-          <div className="w-7.5 h-7.5 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-500/30">
+        <Link href="/" onClick={closeMobile} className="flex items-center gap-2.5 group no-underline">
+          <div className="w-7.5 h-7.5 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-xs">
             <Zap className="w-4 h-4 fill-white" />
           </div>
           <div>
@@ -108,10 +108,10 @@ export function Sidebar() {
                     key={item.href}
                     href={item.href}
                     onClick={closeMobile}
-                    className={`flex items-center justify-between h-9 px-2.5 rounded-lg text-xs transition-all ${
+                    className={`flex items-center justify-between h-9 px-2.5 rounded-lg text-xs transition-all no-underline ${
                       isActive
                         ? 'bg-blue-50 text-blue-700 font-semibold shadow-2xs'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70 font-medium'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-medium'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
