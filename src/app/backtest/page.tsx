@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   ChevronDown,
   ChevronUp,
@@ -67,6 +67,30 @@ export default function BacktestPage() {
     { symbol: 'GLD', name: 'SPDR Gold Shares', assetClass: 'Commodities', weight: 25, expenseRatio: 0.0040 },
     { symbol: 'BIL', name: 'SPDR 1-3M T-Bill (Cash)', assetClass: 'Cash Equivalent', weight: 25, expenseRatio: 0.0014 },
   ]);
+
+  // Read ?add= query parameter from Screener
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const addSym = params.get('add');
+      if (addSym) {
+        const sym = addSym.toUpperCase();
+        setPort1Assets((prev) => {
+          if (prev.some((a) => a.symbol === sym)) return prev;
+          return [
+            ...prev,
+            {
+              symbol: sym,
+              name: `${sym} (Added from Screener)`,
+              assetClass: 'Other',
+              weight: 0,
+              expenseRatio: 0.001,
+            },
+          ];
+        });
+      }
+    }
+  }, []);
 
   // Backtest Settings
   const [initialBalance, setInitialBalance] = useState(10000);

@@ -8,6 +8,8 @@ import {
   BarChart3,
   Shuffle,
   Compass,
+  ShieldCheck,
+  Filter,
 } from 'lucide-react';
 import { runBacktest, AssetPeriodReturn, BacktestResult } from '@/analytics/backtest';
 import { CURATED_DATES, CURATED_RETURNS } from '@/data/curatedData';
@@ -201,7 +203,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Analytical Workspaces Jump Grid (Clickable Feature Module Cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <Link
           href="/backtest"
           className="group rounded-xl border border-slate-200 bg-white p-4.5 transition-all hover:border-slate-300 hover:shadow-md shadow-xs no-underline"
@@ -252,7 +254,43 @@ export default function DashboardPage() {
             Monte Carlo & Longevity
           </h3>
           <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-            5,000-path bootstrap simulation with dynamic Guyton-Klinger withdrawal guardrails.
+            5,000-path stochastic simulation with percentile wealth distribution fan charts.
+          </p>
+        </Link>
+
+        <Link
+          href="/retirement"
+          className="group rounded-xl border border-slate-200 bg-white p-4.5 transition-all hover:border-slate-300 hover:shadow-md shadow-xs no-underline"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all" />
+          </div>
+          <h3 className="text-sm font-semibold text-slate-900 group-hover:text-emerald-600 transition-colors">
+            Retirement Decumulation Lab
+          </h3>
+          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+            Guyton-Klinger guardrails, Bengel 4% rule, Social Security offsets, and SWR curves.
+          </p>
+        </Link>
+
+        <Link
+          href="/screener"
+          className="group rounded-xl border border-slate-200 bg-white p-4.5 transition-all hover:border-slate-300 hover:shadow-md shadow-xs no-underline"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100">
+              <Filter className="w-4 h-4" />
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
+          </div>
+          <h3 className="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">
+            Fund & ETF Screener
+          </h3>
+          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+            Multi-factor screening across 26 benchmark ETFs with 1-click backtest integration.
           </p>
         </Link>
 

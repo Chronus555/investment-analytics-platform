@@ -14,6 +14,8 @@ import {
   BookmarkCheck,
   Zap,
   X,
+  ShieldCheck,
+  Filter,
 } from 'lucide-react';
 import { useNav } from '@/context/NavContext';
 
@@ -46,6 +48,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/optimization', label: 'Optimization & Frontier', icon: PieChart },
       { href: '/monte-carlo', label: 'Monte Carlo & Longevity', icon: Shuffle },
+      { href: '/screener', label: 'Fund & ETF Screener', icon: Filter },
       { href: '/correlations', label: 'Correlations & Matrix', icon: Grid },
       { href: '/factors', label: 'Factor Attribution', icon: TrendingUp },
     ],
@@ -53,6 +56,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Strategies',
     items: [
+      { href: '/retirement', label: 'Retirement & Withdrawal', icon: ShieldCheck },
       { href: '/tactical', label: 'Tactical Strategy Lab', icon: Compass },
     ],
   },
