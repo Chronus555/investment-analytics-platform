@@ -9,14 +9,17 @@ import {
   ChevronUp,
   DollarSign,
   Calendar,
-  Percent
+  Percent,
+  Printer,
+  FileSpreadsheet,
 } from 'lucide-react';
 import {
   runBacktest,
   AssetPeriodReturn,
   RebalanceFrequency,
   CashFlowType,
-  BacktestResult
+  BacktestResult,
+  PortfolioMetrics,
 } from '@/analytics/backtest';
 import { CURATED_DATES, CURATED_RETURNS } from '@/data/curatedData';
 import { PortfolioBuilder, BuilderAsset } from '@/components/builder/PortfolioBuilder';
@@ -28,6 +31,9 @@ import { SummaryMetricsCard } from '@/components/metrics/SummaryMetricsCard';
 import { PeriodicReturnsTable } from '@/components/metrics/PeriodicReturnsTable';
 import { DrawdownTable } from '@/components/metrics/DrawdownTable';
 import { AiPortfolioAnalyst } from '@/components/ai/AiPortfolioAnalyst';
+import { RollingMetricsChart } from '@/components/charts/RollingMetricsChart';
+import { StressTestingCard } from '@/components/stress/StressTestingCard';
+import { TearSheetModal } from '@/components/reports/TearSheetModal';
 
 // Convert curated data to aligned monthly period data
 const ALIGNED_PERIOD_DATA: AssetPeriodReturn[] = CURATED_DATES.map((date, idx) => {
@@ -82,6 +88,14 @@ export default function BacktestPage() {
 
   // Collapsible Advanced Settings
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Tear Sheet Modal State
+  const [tearSheetState, setTearSheetState] = useState<{
+    isOpen: boolean;
+    name: string;
+    assets: BuilderAsset[];
+    metrics: PortfolioMetrics;
+  } | null>(null);
 
   // Compute Benchmark Returns
   const benchmarkReturns = useMemo(() => {
@@ -177,16 +191,68 @@ export default function BacktestPage() {
     { id: 'p3', name: port3Name, color: '#f59e0b', metrics: result3.summary },
   ];
 
+  const rollingSeries = [
+    { name: port1Name, color: '#38bdf8', returns: result1.history.map((h) => h.portfolioReturn) },
+    { name: port2Name, color: '#34d399', returns: result2.history.map((h) => h.portfolioReturn) },
+    { name: port3Name, color: '#f59e0b', returns: result3.history.map((h) => h.portfolioReturn) },
+  ];
+
+  const stressPortfolios = [
+    { name: port1Name, color: '#38bdf8', returns: result1.history.map((h) => h.portfolioReturn) },
+    { name: port2Name, color: '#34d399', returns: result2.history.map((h) => h.portfolioReturn) },
+    { name: port3Name, color: '#f59e0b', returns: result3.history.map((h) => h.portfolioReturn) },
+  ];
+
+  const benchmarkStressInput = {
+    name: `Benchmark (${benchmarkSymbol})`,
+    color: '#94a3b8',
+    returns: benchmarkReturns,
+  };
+
   return (
     <div className="space-y-8">
-      {/* Title */}
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-          Historical Backtest & Portfolio Comparison
-        </h1>
-        <p className="text-xs md:text-sm text-slate-400">
-          Simultaneously configure, compare, and stress-test up to 3 multi-asset portfolios against canonical benchmarks
-        </p>
+      {/* Title & Action Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+            Historical Backtest & Portfolio Comparison
+          </h1>
+          <p className="text-xs md:text-sm text-slate-400 mt-1">
+            Simultaneously configure, compare, and stress-test up to 3 multi-asset portfolios against canonical benchmarks
+          </p>
+        </div>
+
+        {/* Export FactSheet / Tear Sheet Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() =>
+              setTearSheetState({
+                isOpen: true,
+                name: port1Name,
+                assets: port1Assets,
+                metrics: result1.summary,
+              })
+            }
+            className="flex items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-300 transition hover:bg-sky-500/20 shadow"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            Tear Sheet (P1)
+          </button>
+          <button
+            onClick={() =>
+              setTearSheetState({
+                isOpen: true,
+                name: port2Name,
+                assets: port2Assets,
+                metrics: result2.summary,
+              })
+            }
+            className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/20 shadow"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            Tear Sheet (P2)
+          </button>
+        </div>
       </div>
 
       {/* Portfolio Switcher Tabs */}
@@ -319,10 +385,16 @@ export default function BacktestPage() {
               onChange={(e) => setBenchmarkSymbol(e.target.value)}
               className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white focus:border-sky-400 focus:outline-none font-mono"
             >
-              <option value="SPY">SPY (S&P 500)</option>
-              <option value="VTI">VTI (Total US Market)</option>
-              <option value="QQQ">QQQ (Nasdaq 100)</option>
-              <option value="BND">BND (Total Bond Market)</option>
+              <option value="SPY">SPY (S&P 500 US Large Cap)</option>
+              <option value="QQQ">QQQ (Nasdaq 100 Tech)</option>
+              <option value="VTI">VTI (Total US Stock Market)</option>
+              <option value="IWM">IWM (Russell 2000 Small Cap)</option>
+              <option value="VXUS">VXUS (Total International Stock)</option>
+              <option value="BND">BND (Total US Bond Market)</option>
+              <option value="TLT">TLT (20+ Year Long Treasury)</option>
+              <option value="GLD">GLD (SPDR Gold Shares)</option>
+              <option value="VNQ">VNQ (US Real Estate / REITs)</option>
+              <option value="BIL">BIL (1-3M Treasury / Cash)</option>
             </select>
           </div>
 
@@ -429,6 +501,20 @@ export default function BacktestPage() {
         <AnnualReturnsBar series={annualBarSeries} height={300} />
       </div>
 
+      {/* Rolling Performance Analysis */}
+      <RollingMetricsChart
+        dates={CURATED_DATES}
+        series={rollingSeries}
+        benchmarkReturns={benchmarkReturns}
+      />
+
+      {/* Historical Crisis Stress Testing Lab */}
+      <StressTestingCard
+        dates={CURATED_DATES}
+        portfolios={stressPortfolios}
+        benchmark={benchmarkStressInput}
+      />
+
       {/* Summary Metrics Multi-Column Table */}
       <SummaryMetricsCard portfolios={comparisonPortfolios} />
 
@@ -451,6 +537,19 @@ export default function BacktestPage() {
         result={result1}
         benchmarkName={benchmarkSymbol}
       />
+
+      {/* Institutional Tear Sheet Print Modal */}
+      {tearSheetState && (
+        <TearSheetModal
+          isOpen={tearSheetState.isOpen}
+          onClose={() => setTearSheetState(null)}
+          portfolioName={tearSheetState.name}
+          allocations={tearSheetState.assets.map((a) => ({ symbol: a.symbol, weight: a.weight / 100 }))}
+          metrics={tearSheetState.metrics}
+          dates={CURATED_DATES}
+          initialBalance={initialBalance}
+        />
+      )}
     </div>
   );
 }

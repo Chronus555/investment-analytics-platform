@@ -110,6 +110,8 @@ export interface BacktestSummaryMetrics {
   downCapture?: number;
 }
 
+export type PortfolioMetrics = BacktestSummaryMetrics;
+
 export interface BacktestResult {
   summary: BacktestSummaryMetrics;
   history: BacktestPeriodResult[];

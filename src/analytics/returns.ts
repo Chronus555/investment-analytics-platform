@@ -132,3 +132,86 @@ export function calculateRollingReturns(
 export function calculateRealReturn(nominalReturn: number, inflationRate: number): number {
   return (1 + nominalReturn) / (1 + inflationRate) - 1;
 }
+
+/**
+ * Calculates rolling annualized volatility over a sliding window
+ */
+export function calculateRollingVolatility(
+  returns: number[],
+  windowPeriods: number,
+  frequency: number = 12
+): number[] {
+  if (returns.length < windowPeriods || windowPeriods <= 1) return [];
+  const rolling: number[] = [];
+  const sqrtFreq = Math.sqrt(frequency);
+
+  for (let i = windowPeriods - 1; i < returns.length; i++) {
+    const slice = returns.slice(i - windowPeriods + 1, i + 1);
+    const mean = slice.reduce((a, b) => a + b, 0) / slice.length;
+    const sumSq = slice.reduce((a, b) => a + Math.pow(b - mean, 2), 0);
+    const stdev = Math.sqrt(sumSq / (slice.length - 1));
+    rolling.push(stdev * sqrtFreq);
+  }
+  return rolling;
+}
+
+/**
+ * Calculates rolling Sharpe ratio over a sliding window
+ */
+export function calculateRollingSharpe(
+  returns: number[],
+  windowPeriods: number,
+  riskFreeRate: number = 0.04,
+  frequency: number = 12
+): number[] {
+  const rollingCAGR = calculateRollingReturns(returns, windowPeriods, frequency);
+  const rollingVol = calculateRollingVolatility(returns, windowPeriods, frequency);
+  const rolling: number[] = [];
+
+  for (let i = 0; i < rollingCAGR.length; i++) {
+    const vol = rollingVol[i];
+    if (vol <= 0.0001) {
+      rolling.push(0);
+    } else {
+      rolling.push((rollingCAGR[i] - riskFreeRate) / vol);
+    }
+  }
+  return rolling;
+}
+
+/**
+ * Calculates rolling Beta against a benchmark over a sliding window
+ */
+export function calculateRollingBeta(
+  returns: number[],
+  benchmarkReturns: number[],
+  windowPeriods: number
+): number[] {
+  const len = Math.min(returns.length, benchmarkReturns.length);
+  if (len < windowPeriods || windowPeriods <= 1) return [];
+  const rolling: number[] = [];
+
+  for (let i = windowPeriods - 1; i < len; i++) {
+    const rSlice = returns.slice(i - windowPeriods + 1, i + 1);
+    const bSlice = benchmarkReturns.slice(i - windowPeriods + 1, i + 1);
+
+    const rMean = rSlice.reduce((a, b) => a + b, 0) / rSlice.length;
+    const bMean = bSlice.reduce((a, b) => a + b, 0) / bSlice.length;
+
+    let cov = 0;
+    let bVar = 0;
+    for (let j = 0; j < rSlice.length; j++) {
+      const rDev = rSlice[j] - rMean;
+      const bDev = bSlice[j] - bMean;
+      cov += rDev * bDev;
+      bVar += bDev * bDev;
+    }
+
+    if (bVar <= 0.0000001) {
+      rolling.push(1.0);
+    } else {
+      rolling.push(cov / bVar);
+    }
+  }
+  return rolling;
+}

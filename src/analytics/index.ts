@@ -10,3 +10,4 @@ export * from './tactical';
 export * from './factors';
 export * from './blackLitterman';
 export * from './retirement';
+export * from './stressTesting';
