@@ -80,6 +80,11 @@ export function calculateCovariance(x: number[], y: number[], isSample: boolean 
   return cov / (n - (isSample ? 1 : 0));
 }
 
+export interface RollingCorrelationPoint {
+  date: string;
+  correlation: number;
+}
+
 /**
  * Pearson Correlation Coefficient: r = Cov(X, Y) / (sigma_X * sigma_Y)
  */
@@ -92,6 +97,33 @@ export function calculateCorrelation(x: number[], y: number[]): number {
   const stdY = calculateStandardDeviation(subY, true);
   if (stdX === 0 || stdY === 0) return 0;
   return calculateCovariance(subX, subY, true) / (stdX * stdY);
+}
+
+/**
+ * Computes rolling Pearson correlation between two return series over a rolling window.
+ */
+export function calculateRollingCorrelation(
+  x: number[],
+  y: number[],
+  dates: string[],
+  window: number = 12
+): RollingCorrelationPoint[] {
+  const n = Math.min(x.length, y.length, dates.length);
+  if (n < window || window < 2) return [];
+
+  const results: RollingCorrelationPoint[] = [];
+
+  for (let t = window - 1; t < n; t++) {
+    const subX = x.slice(t - window + 1, t + 1);
+    const subY = y.slice(t - window + 1, t + 1);
+    const r = calculateCorrelation(subX, subY);
+    results.push({
+      date: dates[t],
+      correlation: Number.isFinite(r) ? r : 0,
+    });
+  }
+
+  return results;
 }
 
 /**
