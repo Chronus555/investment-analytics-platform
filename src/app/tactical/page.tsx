@@ -1,7 +1,12 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { runDualMomentumStrategy, runMovingAverageStrategy } from '@/analytics/tactical';
+import {
+  runDualMomentumStrategy,
+  runMovingAverageStrategy,
+  runTargetVolatilityStrategy,
+  runRelativeMomentumStrategy,
+} from '@/analytics/tactical';
 import { calculateCAGR } from '@/analytics/returns';
 import { calculateMaxDrawdown } from '@/analytics/drawdowns';
 import { calculateAnnualizedVolatility } from '@/analytics/statistics';
@@ -13,12 +18,16 @@ import { MetricCard } from '@/components/ui/MetricCard';
 import { Badge } from '@/components/ui/Badge';
 import { formatPercent, formatRatio } from '@/utils/formatters';
 
+type TacticalModel = 'dual_momentum' | 'moving_average' | 'target_volatility' | 'relative_momentum';
+
 export default function TacticalPage() {
-  const [strategyType, setStrategyType] = useState<'dual_momentum' | 'moving_average'>('dual_momentum');
+  const [strategyType, setStrategyType] = useState<TacticalModel>('dual_momentum');
   const [lookbackMonths, setLookbackMonths] = useState(12);
   const [topHoldings, setTopHoldings] = useState(2);
   const [smaWindow, setSmaWindow] = useState(10);
   const [safeAsset, setSafeAsset] = useState('BND');
+  const [targetVol, setTargetVol] = useState(0.12);
+  const [targetVolAsset, setTargetVolAsset] = useState<'SPY' | 'QQQ' | 'UNIVERSE'>('SPY');
 
   // Candidate universe
   const universe = ['QQQ', 'SPY', 'IWM', 'EFA', 'EEM', 'GLD', 'TLT'];
@@ -45,8 +54,13 @@ export default function TacticalPage() {
     let signals;
     if (strategyType === 'dual_momentum') {
       signals = runDualMomentumStrategy(dates, prices, lookbackMonths, topHoldings, safeAsset);
-    } else {
+    } else if (strategyType === 'moving_average') {
       signals = runMovingAverageStrategy(dates, prices, smaWindow, safeAsset);
+    } else if (strategyType === 'target_volatility') {
+      const risky = targetVolAsset === 'UNIVERSE' ? universe : [targetVolAsset];
+      signals = runTargetVolatilityStrategy(dates, prices, risky, targetVol, 12, safeAsset, 1.0);
+    } else {
+      signals = runRelativeMomentumStrategy(dates, prices, universe, lookbackMonths, topHoldings);
     }
 
     // Simulate portfolio value over time
@@ -105,10 +119,17 @@ export default function TacticalPage() {
       },
       tradeLog: signals.slice(-12).reverse(), // Last 12 months allocation
     };
-  }, [strategyType, lookbackMonths, topHoldings, smaWindow, safeAsset, dates, prices]);
+  }, [strategyType, lookbackMonths, topHoldings, smaWindow, safeAsset, targetVol, targetVolAsset, dates, prices]);
+
+  const strategyNames: Record<TacticalModel, string> = {
+    dual_momentum: 'Antonacci Dual Momentum',
+    moving_average: `10-Month SMA Trend (${smaWindow}M)`,
+    target_volatility: `Target Volatility (${formatPercent(targetVol, 0)})`,
+    relative_momentum: `Relative Strength Rotation (Top ${topHoldings})`,
+  };
 
   const growthSeries = [
-    { id: 'strat', name: 'Tactical Strategy', color: '#2563eb', data: strategyGrowth },
+    { id: 'strat', name: strategyNames[strategyType], color: '#2563eb', data: strategyGrowth },
     { id: 'bench', name: 'SPY (Buy & Hold)', color: '#64748b', data: benchmarkGrowth },
   ];
 
@@ -117,7 +138,7 @@ export default function TacticalPage() {
       {/* Page Header */}
       <PageHeader
         title="Tactical Strategy & Momentum Lab"
-        description="Backtest Gary Antonacci Dual Momentum cross-asset rotation, 10-month SMA trend following, and cash defense switches."
+        description="Backtest Gary Antonacci Dual Momentum cross-asset rotation, 10-month SMA trend following, Target Volatility dynamic scaling, and Relative Strength momentum rotation."
         badge={<Badge variant="info">Tactical Engine</Badge>}
       />
 
@@ -143,7 +164,27 @@ export default function TacticalPage() {
                   : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
               }`}
             >
-              10-Month Moving Average Trend
+              10-Month SMA Trend
+            </button>
+            <button
+              onClick={() => setStrategyType('target_volatility')}
+              className={`h-8 px-3.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                strategyType === 'target_volatility'
+                  ? 'bg-blue-600 text-white shadow-xs font-semibold'
+                  : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              Target Volatility Scaling
+            </button>
+            <button
+              onClick={() => setStrategyType('relative_momentum')}
+              className={`h-8 px-3.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                strategyType === 'relative_momentum'
+                  ? 'bg-blue-600 text-white shadow-xs font-semibold'
+                  : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              Relative Strength Rotation
             </button>
           </div>
           <span className="text-xs font-mono text-slate-500">
@@ -153,7 +194,7 @@ export default function TacticalPage() {
 
         <div className="p-4 sm:p-5">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-            {strategyType === 'dual_momentum' ? (
+            {strategyType === 'dual_momentum' && (
               <>
                 <div>
                   <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
@@ -183,37 +224,139 @@ export default function TacticalPage() {
                     <option value="3">Top 3 Assets</option>
                   </select>
                 </div>
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    Defensive Out-of-Market Asset
+                  </label>
+                  <select
+                    value={safeAsset}
+                    onChange={(e) => setSafeAsset(e.target.value)}
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
+                  >
+                    <option value="BND">BND (Total Bond Market)</option>
+                    <option value="BIL">BIL (1-3M Treasury / Cash)</option>
+                  </select>
+                </div>
               </>
-            ) : (
-              <div>
-                <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
-                  SMA Window
-                </label>
-                <select
-                  value={smaWindow}
-                  onChange={(e) => setSmaWindow(parseInt(e.target.value, 10))}
-                  className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
-                >
-                  <option value="5">5 Months (Fast)</option>
-                  <option value="10">10 Months (Faber 200-Day Equivalent)</option>
-                  <option value="12">12 Months</option>
-                </select>
-              </div>
             )}
 
-            <div>
-              <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
-                Defensive Out-of-Market Asset
-              </label>
-              <select
-                value={safeAsset}
-                onChange={(e) => setSafeAsset(e.target.value)}
-                className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
-              >
-                <option value="BND">BND (Total Bond Market)</option>
-                <option value="BIL">BIL (1-3M Treasury / Cash)</option>
-              </select>
-            </div>
+            {strategyType === 'moving_average' && (
+              <>
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    SMA Window
+                  </label>
+                  <select
+                    value={smaWindow}
+                    onChange={(e) => setSmaWindow(parseInt(e.target.value, 10))}
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
+                  >
+                    <option value="5">5 Months (Fast)</option>
+                    <option value="10">10 Months (Faber 200-Day Equivalent)</option>
+                    <option value="12">12 Months</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    Defensive Out-of-Market Asset
+                  </label>
+                  <select
+                    value={safeAsset}
+                    onChange={(e) => setSafeAsset(e.target.value)}
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
+                  >
+                    <option value="BND">BND (Total Bond Market)</option>
+                    <option value="BIL">BIL (1-3M Treasury / Cash)</option>
+                  </select>
+                </div>
+              </>
+            )}
+
+            {strategyType === 'target_volatility' && (
+              <>
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    Target Volatility
+                  </label>
+                  <select
+                    value={targetVol}
+                    onChange={(e) => setTargetVol(parseFloat(e.target.value))}
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
+                  >
+                    <option value="0.08">8% Annualized (Conservative)</option>
+                    <option value="0.10">10% Annualized (Moderate)</option>
+                    <option value="0.12">12% Annualized (Standard CTA Target)</option>
+                    <option value="0.15">15% Annualized (Growth)</option>
+                    <option value="0.18">18% Annualized (Aggressive)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    Underlying Risky Exposure
+                  </label>
+                  <select
+                    value={targetVolAsset}
+                    onChange={(e) => setTargetVolAsset(e.target.value as 'SPY' | 'QQQ' | 'UNIVERSE')}
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
+                  >
+                    <option value="SPY">SPY (S&P 500 US Large Cap)</option>
+                    <option value="QQQ">QQQ (Nasdaq 100 Tech/Growth)</option>
+                    <option value="UNIVERSE">Multi-Asset Equal Basket (7 Assets)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    Defensive Cash Buffer
+                  </label>
+                  <select
+                    value={safeAsset}
+                    onChange={(e) => setSafeAsset(e.target.value)}
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
+                  >
+                    <option value="BIL">BIL (1-3M Treasury / Cash)</option>
+                    <option value="BND">BND (Total Bond Market)</option>
+                  </select>
+                </div>
+              </>
+            )}
+
+            {strategyType === 'relative_momentum' && (
+              <>
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    Lookback Period
+                  </label>
+                  <select
+                    value={lookbackMonths}
+                    onChange={(e) => setLookbackMonths(parseInt(e.target.value, 10))}
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
+                  >
+                    <option value="3">3 Months (Short Horizon)</option>
+                    <option value="6">6 Months (Intermediate)</option>
+                    <option value="12">12 Months (Long Horizon)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    Top Momentum Holdings (N)
+                  </label>
+                  <select
+                    value={topHoldings}
+                    onChange={(e) => setTopHoldings(parseInt(e.target.value, 10))}
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
+                  >
+                    <option value="1">Top 1 Leader (100% Weight)</option>
+                    <option value="2">Top 2 Leaders (50% / 50%)</option>
+                    <option value="3">Top 3 Leaders (33.3% Each)</option>
+                  </select>
+                </div>
+                <div className="flex items-end pb-1">
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Pure cross-sectional momentum stays 100% invested in the top-performing assets with monthly rebalancing.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </Card>
@@ -273,13 +416,30 @@ export default function TacticalPage() {
             </thead>
             <tbody className="divide-y divide-slate-100 font-mono text-[12px]">
               {tradeLog.map((log) => {
-                const isDefensive = Object.keys(log.selectedAssets).includes(safeAsset);
+                let badgeText = 'Offensive Momentum';
+                let badgeVariant: 'success' | 'warning' | 'info' | 'neutral' = 'success';
+
+                if (strategyType === 'target_volatility') {
+                  const isDeRisked = (log.cashWeight ?? 0) >= 0.25;
+                  badgeText = isDeRisked
+                    ? `De-Risked (${formatPercent(log.cashWeight ?? 0, 0)} Cash)`
+                    : `Target Vol (${formatPercent(1 - (log.cashWeight ?? 0), 0)} Risky)`;
+                  badgeVariant = isDeRisked ? 'warning' : 'info';
+                } else if (strategyType === 'relative_momentum') {
+                  badgeText = 'Top-K Momentum';
+                  badgeVariant = 'info';
+                } else {
+                  const isDefensive = Object.keys(log.selectedAssets).includes(safeAsset);
+                  badgeText = isDefensive ? 'Defensive Mode' : 'Offensive Momentum';
+                  badgeVariant = isDefensive ? 'warning' : 'success';
+                }
+
                 return (
                   <tr key={log.date} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-2 px-4 text-slate-800 font-semibold font-sans">{log.date.slice(0, 7)}</td>
                     <td className="py-2 px-4">
-                      <Badge variant={isDefensive ? 'warning' : 'success'} size="sm">
-                        {isDefensive ? 'Defensive Mode' : 'Offensive Momentum'}
+                      <Badge variant={badgeVariant} size="sm">
+                        {badgeText}
                       </Badge>
                     </td>
                     <td className="py-2 px-4">

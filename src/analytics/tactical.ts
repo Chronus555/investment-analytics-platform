@@ -169,3 +169,103 @@ export function calculateTargetVolatilityWeights(
     return Math.min(maxLeverage, Math.max(0, rawWeight));
   });
 }
+
+/**
+ * Runs dynamic Target Volatility scaling over time
+ */
+export function runTargetVolatilityStrategy(
+  dates: string[],
+  prices: Record<string, number[]>,
+  riskySymbols: string[] = ['SPY'],
+  targetVol: number = 0.12,
+  lookbackMonths: number = 12,
+  cashSymbol: string = 'BIL',
+  maxLeverage: number = 1.0
+): TacticalSignal[] {
+  const n = dates.length;
+  const signals: TacticalSignal[] = [];
+
+  for (let t = lookbackMonths; t < n; t++) {
+    // Calculate returns of the risky basket over the lookback window
+    const monthlyBasketReturns: number[] = [];
+    for (let i = t - lookbackMonths + 1; i <= t; i++) {
+      let monthRet = 0;
+      riskySymbols.forEach((sym) => {
+        const pCurrent = prices[sym][i];
+        const pPrev = prices[sym][i - 1];
+        const r = pPrev > 0 ? (pCurrent - pPrev) / pPrev : 0;
+        monthRet += r / riskySymbols.length;
+      });
+      monthlyBasketReturns.push(monthRet);
+    }
+
+    // Sample variance and annualized volatility
+    const mean = monthlyBasketReturns.reduce((a, b) => a + b, 0) / monthlyBasketReturns.length;
+    const variance =
+      monthlyBasketReturns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) /
+      Math.max(1, monthlyBasketReturns.length - 1);
+    const realizedVol = Math.sqrt(variance * 12);
+
+    // Dynamic weight
+    const riskyWeight = realizedVol > 0 ? Math.min(maxLeverage, Math.max(0.1, targetVol / realizedVol)) : maxLeverage;
+    const cashWeight = Math.max(0, 1.0 - riskyWeight);
+
+    const selected: Record<string, number> = {};
+    riskySymbols.forEach((sym) => {
+      selected[sym] = riskyWeight / riskySymbols.length;
+    });
+    if (cashWeight > 0.001) {
+      selected[cashSymbol] = cashWeight;
+    }
+
+    signals.push({
+      date: dates[t],
+      selectedAssets: selected,
+      cashWeight,
+    });
+  }
+
+  return signals;
+}
+
+/**
+ * Pure Relative Strength Momentum Rotation (Top-K assets without cash hurdle filter)
+ */
+export function runRelativeMomentumStrategy(
+  dates: string[],
+  prices: Record<string, number[]>,
+  candidateSymbols: string[],
+  lookbackMonths: number = 6,
+  topN: number = 2
+): TacticalSignal[] {
+  const n = dates.length;
+  const signals: TacticalSignal[] = [];
+  const k = Math.max(1, Math.min(topN, candidateSymbols.length));
+
+  for (let t = lookbackMonths; t < n; t++) {
+    const scored: { symbol: string; return: number }[] = [];
+
+    candidateSymbols.forEach((sym) => {
+      const pCurrent = prices[sym][t];
+      const pOld = prices[sym][t - lookbackMonths];
+      const ret = pOld > 0 ? (pCurrent - pOld) / pOld : -1;
+      scored.push({ symbol: sym, return: ret });
+    });
+
+    scored.sort((a, b) => b.return - a.return);
+    const topHoldings = scored.slice(0, k);
+
+    const selected: Record<string, number> = {};
+    topHoldings.forEach((h) => {
+      selected[h.symbol] = 1 / k;
+    });
+
+    signals.push({
+      date: dates[t],
+      selectedAssets: selected,
+      cashWeight: 0,
+    });
+  }
+
+  return signals;
+}
