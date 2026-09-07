@@ -17,6 +17,14 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Badge } from '@/components/ui/Badge';
 import { formatPercent, formatRatio } from '@/utils/formatters';
 import { PieChart, Sliders, Plus, Trash2, ArrowUpRight, ArrowDownRight, Sparkles } from 'lucide-react';
+import { MetricCard } from '@/components/ui/MetricCard';
+import { runWalkForwardOptimization, WalkForwardModel, WalkForwardResult } from '@/analytics/walkForwardOptimization';
+import { CURATED_DATES } from '@/data/curatedData';
+import { WalkForwardGrowthChart } from '@/components/charts/WalkForwardGrowthChart';
+import { WalkForwardWeightsChart } from '@/components/charts/WalkForwardWeightsChart';
+import { WalkForwardDecayChart } from '@/components/charts/WalkForwardDecayChart';
+import { History, RotateCcw, TrendingUp, AlertTriangle, ShieldCheck, Activity, Layers, BarChart3, Clock } from 'lucide-react';
+
 
 const CORE_TICKERS = [
   'SPY', 'QQQ', 'VTI', 'BND',
@@ -41,7 +49,15 @@ const DEFAULT_MARKET_CAP_WEIGHTS: Record<string, number> = {
 };
 
 export default function OptimizationPage() {
-  const [activeMode, setActiveMode] = useState<'frontier' | 'black_litterman'>('frontier');
+  const [activeMode, setActiveMode] = useState<'frontier' | 'black_litterman' | 'walk_forward'>('frontier');
+
+  // Walk-Forward State
+  const [wfModel, setWfModel] = useState<WalkForwardModel>('max_sharpe');
+  const [inSampleMonths, setInSampleMonths] = useState<number>(36);
+  const [outOfSampleMonths, setOutOfSampleMonths] = useState<number>(3);
+  const [wfMinWeight, setWfMinWeight] = useState<number>(0.0);
+  const [wfMaxWeight, setWfMaxWeight] = useState<number>(0.40);
+  const [wfRiskFreeRate, setWfRiskFreeRate] = useState<number>(0.04);
 
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>([
     'SPY',
@@ -192,6 +208,28 @@ export default function OptimizationPage() {
     );
   }, [validSymbols, marketCapWeights, covMatrix, views, tau, riskAversion]);
 
+
+  // Walk-Forward Optimization Execution
+  const wfResult = useMemo<WalkForwardResult | null>(() => {
+    if (validSymbols.length === 0) return null;
+    try {
+      return runWalkForwardOptimization({
+        symbols: validSymbols,
+        returnsMap: CURATED_RETURNS,
+        dates: CURATED_DATES,
+        model: wfModel,
+        inSampleMonths,
+        outOfSampleMonths,
+        minWeight: wfMinWeight,
+        maxWeight: wfMaxWeight,
+        riskFreeRate: wfRiskFreeRate,
+      });
+    } catch (e) {
+      console.error('Walk-Forward computation error:', e);
+      return null;
+    }
+  }, [validSymbols, wfModel, inSampleMonths, outOfSampleMonths, wfMinWeight, wfMaxWeight, wfRiskFreeRate]);
+
   // Toggle Security in Universe
   const toggleSymbol = (sym: string) => {
     if (selectedSymbols.includes(sym)) {
@@ -242,12 +280,23 @@ export default function OptimizationPage() {
           >
             Black-Litterman Studio
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveMode('walk_forward')}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition cursor-pointer ${
+              activeMode === 'walk_forward'
+                ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Walk-Forward Optimization
+          </button>
         </div>
 
         <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-slate-500">
           <span>{validSymbols.length} ASSETS</span>
           <span>•</span>
-          <span>{activeMode === 'frontier' ? 'MEAN-VARIANCE' : 'BAYESIAN PRIORS'}</span>
+          <span>{activeMode === 'frontier' ? 'MEAN-VARIANCE' : activeMode === 'black_litterman' ? 'BAYESIAN PRIORS' : 'ROLLING OUT-OF-SAMPLE'}</span>
         </div>
       </div>
 
@@ -813,6 +862,427 @@ export default function OptimizationPage() {
           </Card>
         </div>
       )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* TAB 3: WALK-FORWARD OPTIMIZATION (ROLLING OUT-OF-SAMPLE)      */}
+      {/* ------------------------------------------------------------- */}
+      {activeMode === 'walk_forward' && (
+        <div className="space-y-6">
+          {/* Controls Card */}
+          <Card className="shadow-xs border-slate-200 bg-white">
+            <CardHeader className="pb-3 border-b border-slate-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-blue-600" />
+                    <span>Walk-Forward Simulation Parameters</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-500 mt-0.5">
+                    Configure rolling training lookbacks, re-optimization holding intervals, and boundary limits
+                  </CardDescription>
+                </div>
+                <Badge variant="neutral" className="w-fit text-[11px] font-mono">
+                  {validSymbols.length} Assets • {CURATED_DATES.length} Total Periods
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {/* Optimization Model */}
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider block mb-1.5 font-mono">
+                    Objective Model
+                  </label>
+                  <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-lg border border-slate-200/70 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setWfModel('max_sharpe')}
+                      className={`py-1.5 px-2 rounded-md font-medium text-center transition cursor-pointer ${
+                        wfModel === 'max_sharpe'
+                          ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Max Sharpe
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWfModel('min_variance')}
+                      className={`py-1.5 px-2 rounded-md font-medium text-center transition cursor-pointer ${
+                        wfModel === 'min_variance'
+                          ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Min Vol
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWfModel('risk_parity')}
+                      className={`py-1.5 px-2 rounded-md font-medium text-center transition cursor-pointer ${
+                        wfModel === 'risk_parity'
+                          ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Risk Parity
+                    </button>
+                  </div>
+                </div>
+
+                {/* In-Sample Lookback Window */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider font-mono">
+                      Training Window (W_in)
+                    </label>
+                    <span className="text-xs font-mono font-medium text-blue-600">
+                      {inSampleMonths} Months ({Math.round((inSampleMonths / 12) * 10) / 10}Y)
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 rounded-lg border border-slate-200/70 text-xs">
+                    {[12, 24, 36, 60].map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setInSampleMonths(m)}
+                        className={`py-1.5 px-2 rounded-md font-medium text-center transition cursor-pointer ${
+                          inSampleMonths === m
+                            ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        {m}M
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Out-of-Sample Rebalance Window */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider font-mono">
+                      Rebalance Horizon (W_out)
+                    </label>
+                    <span className="text-xs font-mono font-medium text-blue-600">
+                      Every {outOfSampleMonths} Month{outOfSampleMonths > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 rounded-lg border border-slate-200/70 text-xs">
+                    {[
+                      { m: 1, label: '1M' },
+                      { m: 3, label: '3M' },
+                      { m: 6, label: '6M' },
+                      { m: 12, label: '12M' },
+                    ].map((item) => (
+                      <button
+                        key={item.m}
+                        type="button"
+                        onClick={() => setOutOfSampleMonths(item.m)}
+                        className={`py-1.5 px-2 rounded-md font-medium text-center transition cursor-pointer ${
+                          outOfSampleMonths === item.m
+                            ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Weight Bounds and Risk Free Rate */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-100 text-xs">
+                <div>
+                  <div className="flex justify-between text-slate-600 mb-1">
+                    <span>Min Weight:</span>
+                    <span className="font-mono font-semibold text-slate-900">{formatPercent(wfMinWeight, 0)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.0"
+                    max="0.10"
+                    step="0.01"
+                    value={wfMinWeight}
+                    onChange={(e) => setWfMinWeight(parseFloat(e.target.value))}
+                    className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-slate-600 mb-1">
+                    <span>Max Weight Cap:</span>
+                    <span className="font-mono font-semibold text-slate-900">{formatPercent(wfMaxWeight, 0)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.20"
+                    max="1.0"
+                    step="0.05"
+                    value={wfMaxWeight}
+                    onChange={(e) => setWfMaxWeight(parseFloat(e.target.value))}
+                    className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-slate-600 mb-1">
+                    <span>Risk-Free Rate (Rf):</span>
+                    <span className="font-mono font-semibold text-slate-900">{formatPercent(wfRiskFreeRate, 1)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.01"
+                    max="0.07"
+                    step="0.005"
+                    value={wfRiskFreeRate}
+                    onChange={(e) => setWfRiskFreeRate(parseFloat(e.target.value))}
+                    className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 6 Executive KPI MetricCards */}
+          {wfResult && (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              <MetricCard
+                label="OOS Realized CAGR"
+                value={formatPercent(wfResult.kpis.cagr, 2)}
+                change={
+                  wfResult.kpis.cagr >= wfResult.benchmarks.equalWeight.cagr
+                    ? `+${formatPercent(wfResult.kpis.cagr - wfResult.benchmarks.equalWeight.cagr, 1)} vs 1/N`
+                    : `${formatPercent(wfResult.kpis.cagr - wfResult.benchmarks.equalWeight.cagr, 1)} vs 1/N`
+                }
+                changeType={wfResult.kpis.cagr >= wfResult.benchmarks.equalWeight.cagr ? 'positive' : 'negative'}
+              />
+
+              <MetricCard
+                label="OOS Volatility"
+                value={formatPercent(wfResult.kpis.volatility, 2)}
+                change={
+                  wfResult.kpis.volatility <= wfResult.benchmarks.equalWeight.volatility
+                    ? `${formatPercent(wfResult.kpis.volatility - wfResult.benchmarks.equalWeight.volatility, 1)} vs 1/N`
+                    : `+${formatPercent(wfResult.kpis.volatility - wfResult.benchmarks.equalWeight.volatility, 1)} vs 1/N`
+                }
+                changeType={wfResult.kpis.volatility <= wfResult.benchmarks.equalWeight.volatility ? 'positive' : 'negative'}
+              />
+
+              <MetricCard
+                label="OOS Sharpe Ratio"
+                value={formatRatio(wfResult.kpis.sharpeRatio, 2)}
+                change={`Rf = ${formatPercent(wfRiskFreeRate, 1)}`}
+                changeType={wfResult.kpis.sharpeRatio >= 0.5 ? 'positive' : 'neutral'}
+              />
+
+              <MetricCard
+                label="Max Drawdown"
+                value={formatPercent(wfResult.kpis.maxDrawdown, 2)}
+                change={`Peak to Trough`}
+                changeType={wfResult.kpis.maxDrawdown > -0.25 ? 'positive' : 'negative'}
+              />
+
+              <MetricCard
+                label="Avg Turnover"
+                value={formatPercent(wfResult.kpis.avgTurnover, 1)}
+                change={`${wfResult.kpis.rebalanceCount} Rebalances`}
+                changeType="neutral"
+              />
+
+              <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-xs flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500">Sharpe Decay Ratio</span>
+                  <span
+                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                      wfResult.kpis.sharpeDecay >= 0.75
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : wfResult.kpis.sharpeDecay >= 0.50
+                        ? 'bg-amber-50 text-amber-700'
+                        : 'bg-rose-50 text-rose-700'
+                    }`}
+                  >
+                    {wfResult.kpis.sharpeDecay >= 0.75 ? 'Robust' : wfResult.kpis.sharpeDecay >= 0.50 ? 'Moderate' : 'Overfit'}
+                  </span>
+                </div>
+                <div className="text-xl font-bold font-mono text-slate-900 mt-1">
+                  {formatRatio(wfResult.kpis.sharpeDecay, 2)}x
+                </div>
+                <div className="text-[11px] font-mono text-slate-500 mt-1 truncate">
+                  IS {formatRatio(wfResult.kpis.inSampleAvgSharpe, 2)} → OOS {formatRatio(wfResult.kpis.sharpeRatio, 2)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Primary Growth & Drawdown Chart */}
+          {wfResult && (
+            <Card className="shadow-xs border-slate-200 bg-white">
+              <CardHeader className="pb-3 border-b border-slate-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <CardTitle className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-blue-600" />
+                      <span>Out-of-Sample Compounded Growth & Drawdown</span>
+                    </CardTitle>
+                    <CardDescription className="text-xs text-slate-500 mt-0.5">
+                      Strict forward performance ($10,000 base) evaluated with zero look-ahead bias vs 1/N, 60/40, and In-Sample Look-Ahead Overfit
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-mono">
+                    <span className="text-slate-500">{wfResult.outOfSampleSeries.length} Out-of-Sample Months</span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <WalkForwardGrowthChart
+                  series={wfResult.outOfSampleSeries}
+                  benchmarks={wfResult.benchmarks}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Dual Column Visualizations: Dynamic Allocation & Sharpe Decay */}
+          {wfResult && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Dynamic Weights Evolution */}
+              <Card className="shadow-xs border-slate-200 bg-white">
+                <CardHeader className="pb-3 border-b border-slate-100">
+                  <CardTitle className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-blue-600" />
+                    <span>Dynamic Asset Allocation Over Time</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-500 mt-0.5">
+                    Stacked weight composition demonstrating adaptive shifts across historical regimes
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <WalkForwardWeightsChart
+                    series={wfResult.outOfSampleSeries}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Empirical Walk-Forward Sharpe Efficiency Gap */}
+              <Card className="shadow-xs border-slate-200 bg-white">
+                <CardHeader className="pb-3 border-b border-slate-100">
+                  <CardTitle className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-purple-600" />
+                    <span>Empirical Sharpe Efficiency Gap (Optimization Tax)</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-500 mt-0.5">
+                    In-Sample Expected Sharpe vs realized Out-of-Sample Sharpe across rebalance intervals
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <WalkForwardDecayChart
+                    events={wfResult.rebalanceEvents}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Rebalance Schedule Audit Log Table */}
+          {wfResult && (
+            <Card className="shadow-xs border-slate-200 bg-white">
+              <CardHeader className="pb-3 border-b border-slate-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-slate-700" />
+                      <span>Chronological Rebalance Audit Schedule</span>
+                    </CardTitle>
+                    <CardDescription className="text-xs text-slate-500 mt-0.5">
+                      Complete step-by-step history of optimal weights, in-sample estimations, and realized out-of-sample holding returns
+                    </CardDescription>
+                  </div>
+                  <Badge variant="neutral">
+                    {wfResult.rebalanceEvents.length} Rebalance Events
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto max-h-96">
+                  <table className="w-full text-left text-xs font-mono border-collapse">
+                    <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
+                      <tr>
+                        <th className="py-2.5 px-3 font-semibold text-slate-700">#</th>
+                        <th className="py-2.5 px-3 font-semibold text-slate-700">Date</th>
+                        <th className="py-2.5 px-3 font-semibold text-slate-700">Training Window</th>
+                        <th className="py-2.5 px-3 font-semibold text-slate-700">Optimal Allocations</th>
+                        <th className="py-2.5 px-3 font-semibold text-slate-700 text-right">IS Sharpe</th>
+                        <th className="py-2.5 px-3 font-semibold text-slate-700 text-right">OOS Return</th>
+                        <th className="py-2.5 px-3 font-semibold text-slate-700 text-right">OOS Sharpe</th>
+                        <th className="py-2.5 px-3 font-semibold text-slate-700 text-right">Turnover</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {wfResult.rebalanceEvents.map((evt) => {
+                        const topAssets = Object.entries(evt.weights)
+                          .filter(([_, w]) => w >= 0.05)
+                          .sort((a, b) => b[1] - a[1]);
+
+                        return (
+                          <tr key={evt.rebalanceIndex} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-2 px-3 text-slate-500 font-semibold">{evt.rebalanceIndex}</td>
+                            <td className="py-2 px-3 font-semibold text-slate-900">{evt.date}</td>
+                            <td className="py-2 px-3 text-slate-500 text-[11px]">
+                              {evt.lookbackStartDate} → {evt.lookbackEndDate}
+                            </td>
+                            <td className="py-2 px-3">
+                              <div className="flex flex-wrap gap-1">
+                                {topAssets.map(([sym, w]) => (
+                                  <span
+                                    key={sym}
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 text-[10px] font-medium"
+                                  >
+                                    <span>{sym}</span>
+                                    <span className="font-semibold text-blue-600">{formatPercent(w, 0)}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="py-2 px-3 text-right font-medium text-purple-700">
+                              {formatRatio(evt.inSampleSharpe, 2)}
+                            </td>
+                            <td
+                              className={`py-2 px-3 text-right font-semibold ${
+                                evt.outOfSampleReturn >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                              }`}
+                            >
+                              {evt.outOfSampleReturn >= 0
+                                ? `+${formatPercent(evt.outOfSampleReturn, 1)}`
+                                : formatPercent(evt.outOfSampleReturn, 1)}
+                            </td>
+                            <td
+                              className={`py-2 px-3 text-right font-medium ${
+                                evt.outOfSampleSharpe >= 0.5
+                                  ? 'text-slate-900'
+                                  : evt.outOfSampleSharpe >= 0
+                                  ? 'text-slate-600'
+                                  : 'text-rose-600'
+                              }`}
+                            >
+                              {formatRatio(evt.outOfSampleSharpe, 2)}
+                            </td>
+                            <td className="py-2 px-3 text-right text-slate-600">
+                              {formatPercent(evt.turnover, 0)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }

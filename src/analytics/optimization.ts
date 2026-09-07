@@ -48,6 +48,35 @@ export function calculatePortfolioVolatility(weights: number[], covMatrix: numbe
 }
 
 /**
+ * Exact projection onto the simplex {w: sum(w) = 1, minW[i] <= w[i] <= maxW[i]}
+ * using bisection on the Lagrange multiplier lambda.
+ */
+export function projectSimplexWithBounds(weights: number[], minW: number[], maxW: number[]): number[] {
+  const n = weights.length;
+  let low = -10.0;
+  let high = 10.0;
+
+  for (let iter = 0; iter < 40; iter++) {
+    const mid = (low + high) / 2;
+    let sum = 0;
+    for (let i = 0; i < n; i++) {
+      sum += Math.min(maxW[i], Math.max(minW[i], weights[i] - mid));
+    }
+    if (sum > 1.0) {
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+
+  const mid = (low + high) / 2;
+  const clamped = weights.map((w, i) => Math.min(maxW[i], Math.max(minW[i], w - mid)));
+  const sum = clamped.reduce((a, b) => a + b, 0);
+  if (sum <= 0) return weights.map(() => 1 / n);
+  return clamped.map((v) => v / sum);
+}
+
+/**
  * Projected Gradient Descent Solver for Constrained Mean-Variance Optimization
  */
 export function solveOptimization(
@@ -124,18 +153,10 @@ export function solveOptimization(
     }
 
     // Step in opposite direction of gradient
-    const nextW = w.map((val, i) => val - lr * grad[i]);
+    const stepW = w.map((val, i) => val - lr * grad[i]);
 
-    // Project onto box bounds and simplex sum(w) = 1
-    for (let i = 0; i < n; i++) {
-      nextW[i] = Math.min(maxW[i], Math.max(minW[i], nextW[i]));
-    }
-    const currentSum = nextW.reduce((a, b) => a + b, 0);
-    if (currentSum > 0) {
-      for (let i = 0; i < n; i++) {
-        nextW[i] /= currentSum;
-      }
-    }
+    // Project onto box bounds and simplex sum(w) = 1 via bisection on Lagrange multiplier
+    const nextW = projectSimplexWithBounds(stepW, minW, maxW);
 
     // Line search / decay
     const nextVal = evalObjective(nextW);
@@ -149,9 +170,8 @@ export function solveOptimization(
     if (lr < 1e-8) break;
   }
 
-  // Final normalization
-  const finalSum = w.reduce((a, b) => a + b, 0);
-  const normalizedWeights = w.map((val) => (finalSum > 0 ? val / finalSum : 1 / n));
+  // Final projection to guarantee exact simplex and bound satisfaction
+  const normalizedWeights = projectSimplexWithBounds(w, minW, maxW);
 
   const weightMap: Record<string, number> = {};
   symbols.forEach((sym, i) => {
