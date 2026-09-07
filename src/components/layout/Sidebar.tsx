@@ -16,6 +16,7 @@ import {
   X,
   ShieldCheck,
   Filter,
+  Award,
 } from 'lucide-react';
 import { useNav } from '@/context/NavContext';
 
@@ -46,6 +47,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Analysis',
     items: [
+      { href: '/attribution', label: 'Manager Performance', icon: Award },
       { href: '/optimization', label: 'Optimization & Frontier', icon: PieChart },
       { href: '/monte-carlo', label: 'Monte Carlo & Longevity', icon: Shuffle },
       { href: '/screener', label: 'Fund & ETF Screener', icon: Filter },
