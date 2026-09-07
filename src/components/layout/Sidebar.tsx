@@ -18,6 +18,7 @@ import {
   Filter,
   Award,
   Milestone,
+  History,
 } from 'lucide-react';
 import { useNav } from '@/context/NavContext';
 
@@ -42,6 +43,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Portfolio',
     items: [
       { href: '/backtest', label: 'Backtest & Compare', icon: LineChart },
+      { href: '/asset-class', label: 'Asset Class (1972+)', icon: History, badge: '54Y' },
       { href: '/saved', label: 'Saved Portfolios', icon: BookmarkCheck },
     ],
   },
