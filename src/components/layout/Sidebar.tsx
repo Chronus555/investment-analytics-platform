@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Filter,
   Award,
+  Milestone,
 } from 'lucide-react';
 import { useNav } from '@/context/NavContext';
 
@@ -58,6 +59,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Strategies',
     items: [
+      { href: '/dynamic-allocation', label: 'Dynamic Glide Path', icon: Milestone },
       { href: '/retirement', label: 'Retirement & Withdrawal', icon: ShieldCheck },
       { href: '/tactical', label: 'Tactical Strategy Lab', icon: Compass },
     ],
