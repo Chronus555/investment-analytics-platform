@@ -43,6 +43,9 @@ import {
 import { runTaxAwareBacktest, CostBasisMethod, TaxBacktestResult } from '@/analytics/taxBacktest';
 import { calculateXIRR, analyzeCashFlowTiming, CashFlowEntry, CashFlowTimingAnalysis } from '@/analytics/xirr';
 import { TaxGrowthChart } from '@/components/charts/TaxGrowthChart';
+import { runTaxLossHarvestingSimulation, TLHResult, DEFAULT_PROXY_PAIRS, HarvestEvent } from '@/analytics/taxLossHarvesting';
+import { TlhGrowthChart } from '@/components/charts/TlhGrowthChart';
+import { Scissors, RefreshCw, ArrowRight, ShieldCheck } from 'lucide-react';
 import { formatCurrency, formatPercent, formatRatio } from '@/utils/formatters';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
@@ -116,7 +119,7 @@ export default function BacktestPage() {
   const [benchmarkSymbol, setBenchmarkSymbol] = useState('SPY');
 
   // View Mode: Standard vs Tax-Aware vs Cash Flow Timing (XIRR)
-  const [viewMode, setViewMode] = useState<'standard' | 'tax' | 'cashflow'>('standard');
+  const [viewMode, setViewMode] = useState<'standard' | 'tax' | 'tlh' | 'cashflow'>('standard');
 
   // Tax-Aware Settings State
   const [isTaxable, setIsTaxable] = useState(true);
@@ -124,6 +127,8 @@ export default function BacktestPage() {
   const [ltcgTaxRate, setLtcgTaxRate] = useState(0.15); // 15%
   const [dividendTaxRate, setDividendTaxRate] = useState(0.15); // 15%
   const [costBasisMethod, setCostBasisMethod] = useState<CostBasisMethod>('HIFO');
+
+
 
   // Cash Flow Timing (XIRR) Scenario State
   const [cashFlowScenario, setCashFlowScenario] = useState<'annual' | 'dip_buying' | 'peak_chasing'>('dip_buying');
@@ -165,6 +170,28 @@ export default function BacktestPage() {
       }
     );
   }, [activePortAssets, initialBalance, isTaxable, ordinaryTaxRate, ltcgTaxRate, dividendTaxRate, costBasisMethod, rebalanceFreq, rebalanceThreshold]);
+
+  // Tax-Loss Harvesting (TLH) Settings State
+  const [tlhLossThresholdPct, setTlhLossThresholdPct] = useState(-0.05); // -5%
+  const [tlhMinDollarLoss, setTlhMinDollarLoss] = useState(75); // $75 min loss
+  const [tlhMaxOrdinaryOffset, setTlhMaxOrdinaryOffset] = useState(3000); // $3,000/yr IRS limit
+
+  // Compute Tax-Loss Harvesting Simulation
+  const tlhResult = useMemo<TLHResult>(() => {
+    return runTaxLossHarvestingSimulation(
+      activePortAssets.map((a) => ({ symbol: a.symbol, weight: a.weight / 100 })),
+      ALIGNED_PERIOD_DATA,
+      {
+        initialBalance,
+        harvestThresholdPct: tlhLossThresholdPct,
+        minDollarLoss: tlhMinDollarLoss,
+        ordinaryTaxRate,
+        ltcgTaxRate,
+        dividendTaxRate,
+        maxOrdinaryOffset: tlhMaxOrdinaryOffset,
+      }
+    );
+  }, [activePortAssets, initialBalance, tlhLossThresholdPct, tlhMinDollarLoss, ordinaryTaxRate, ltcgTaxRate, dividendTaxRate, tlhMaxOrdinaryOffset]);
 
   // Active Irregular Cash Flows
   const activeFlows = useMemo<CashFlowEntry[]>(() => {
@@ -413,6 +440,19 @@ export default function BacktestPage() {
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-mono">HIFO/FIFO</span>
         </button>
 
+        <button
+          type="button"
+          onClick={() => setViewMode('tlh')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+            viewMode === 'tlh'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+          }`}
+        >
+          <Scissors className="w-3.5 h-3.5 text-emerald-600" />
+          Tax-Loss Harvesting &amp; Direct Indexing
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-mono">30D Wash Sale</span>
+        </button>
         <button
           type="button"
           onClick={() => setViewMode('cashflow')}
@@ -1029,6 +1069,398 @@ export default function BacktestPage() {
                       <td className="py-2 px-4 text-slate-700">{formatCurrency(row.dividendIncome)}</td>
                       <td className="py-2 px-4 text-rose-600 font-bold">{formatCurrency(row.taxPaid)}</td>
                       <td className="py-2 px-4 text-slate-900 font-bold">{formatCurrency(row.afterTaxEndBalance)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Tax-Loss Harvesting & Direct Indexing View */}
+      {viewMode === 'tlh' && (
+        <div className="space-y-6">
+          {/* Controls Card */}
+          <Card className="shadow-xs border-slate-200 bg-white">
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Scissors className="w-5 h-5 text-emerald-600" />
+                    <CardTitle className="text-slate-900 text-sm font-semibold">
+                      Tax-Loss Harvesting &amp; Wash-Sale Substitution Controls
+                    </CardTitle>
+                    <Badge variant="success" className="font-mono text-[11px]">
+                      IRS Sec 1091 Compliant
+                    </Badge>
+                  </div>
+                  <CardDescription className="text-slate-500 text-xs mt-1">
+                    Systematic lot harvesting with 30-day substitute proxy routing, ordinary income deduction offsetting, and tax alpha reinvestment
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+
+            <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50/50">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-slate-600 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                      Harvest Loss Threshold
+                    </label>
+                    <span className="font-mono font-bold text-rose-600">
+                      {formatPercent(tlhLossThresholdPct, 0)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-0.20"
+                    max="-0.02"
+                    step="0.01"
+                    value={tlhLossThresholdPct}
+                    onChange={(e) => setTlhLossThresholdPct(parseFloat(e.target.value))}
+                    className="w-full accent-emerald-600 cursor-pointer"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Trigger harvest when lot loss exceeds threshold
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    Min Dollar Loss per Lot
+                  </label>
+                  <select
+                    value={tlhMinDollarLoss}
+                    onChange={(e) => setTlhMinDollarLoss(parseFloat(e.target.value))}
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 font-mono text-xs focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none cursor-pointer"
+                  >
+                    <option value="25">$25 (Aggressive Micro-Harvesting)</option>
+                    <option value="50">$50 (Balanced)</option>
+                    <option value="75">$75 (Recommended)</option>
+                    <option value="100">$100 (Conservative)</option>
+                    <option value="250">$250 (High Balance Portfolios)</option>
+                  </select>
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Prevents transaction churn on negligible losses
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    IRS Ordinary Income Offset
+                  </label>
+                  <select
+                    value={tlhMaxOrdinaryOffset}
+                    onChange={(e) => setTlhMaxOrdinaryOffset(parseFloat(e.target.value))}
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 font-mono text-xs focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none cursor-pointer"
+                  >
+                    <option value="3000">$3,000 / Year (IRS Maximum Cap)</option>
+                    <option value="1500">$1,500 / Year (Married Filing Separate)</option>
+                    <option value="0">$0 / Year (Capital Gains Only)</option>
+                  </select>
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Net realized capital loss allowed against ordinary salary
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    Investor Marginal Tax Bracket
+                  </label>
+                  <select
+                    value={ordinaryTaxRate}
+                    onChange={(e) => setOrdinaryTaxRate(parseFloat(e.target.value))}
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 font-mono text-xs focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none cursor-pointer"
+                  >
+                    <option value="0.22">22% Federal Marginal</option>
+                    <option value="0.24">24% Federal Marginal</option>
+                    <option value="0.32">32% Federal Marginal</option>
+                    <option value="0.35">35% Federal Marginal</option>
+                    <option value="0.37">37% Federal Top Bracket</option>
+                  </select>
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Determines cash tax shield value of harvested losses
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* 6 TLH Performance & Tax Alpha KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
+              <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider block">Tax-Harvested CAGR</span>
+              <span className="text-2xl font-bold font-mono text-emerald-600 mt-1 block">
+                {formatPercent(tlhResult.harvestedCAGR, 2)}
+              </span>
+              <span className="text-xs text-slate-400 mt-0.5 block">Baseline: {formatPercent(tlhResult.baselineCAGR, 2)}</span>
+            </div>
+
+            <div className={`p-4 border rounded-xl shadow-xs ${
+              tlhResult.taxAlphaBps >= 0 ? 'bg-emerald-50/40 border-emerald-200' : 'bg-rose-50/40 border-rose-200'
+            }`}>
+              <span className={`text-[11px] font-mono uppercase tracking-wider block font-semibold ${
+                tlhResult.taxAlphaBps >= 0 ? 'text-emerald-700' : 'text-rose-700'
+              }`}>Net Tax Alpha</span>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className={`text-2xl font-bold font-mono ${
+                  tlhResult.taxAlphaBps >= 0 ? 'text-emerald-700' : 'text-rose-700'
+                }`}>
+                  {tlhResult.taxAlphaBps >= 0 ? '+' : ''}{tlhResult.taxAlphaBps.toFixed(0)} bps
+                </span>
+                <Badge variant={tlhResult.taxAlphaBps >= 0 ? 'success' : 'danger'} className="text-[10px]">
+                  {tlhResult.taxAlphaBps >= 0 ? 'ALPHA' : 'DRAG'}
+                </Badge>
+              </div>
+              <span className={`text-xs mt-0.5 block ${
+                tlhResult.taxAlphaBps >= 0 ? 'text-emerald-600' : 'text-rose-600'
+              }`}>Annualized compound edge</span>
+            </div>
+
+            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
+              <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider block">Losses Harvested</span>
+              <span className="text-2xl font-bold font-mono text-rose-600 mt-1 block">
+                {formatCurrency(tlhResult.cumulativeLossesHarvested)}
+              </span>
+              <span className="text-xs text-slate-400 mt-0.5 block">{tlhResult.totalHarvestEvents} tax lots harvested</span>
+            </div>
+
+            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
+              <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider block">Tax Savings Reinvested</span>
+              <span className="text-2xl font-bold font-mono text-emerald-600 mt-1 block">
+                {formatCurrency(tlhResult.cumulativeTaxSavings)}
+              </span>
+              <span className="text-xs text-slate-400 mt-0.5 block">Compounded in portfolio</span>
+            </div>
+
+            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
+              <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider block">Net Wealth Delta</span>
+              <span className={`text-2xl font-bold font-mono mt-1 block ${
+                tlhResult.netWealthGain >= 0 ? 'text-emerald-600' : 'text-rose-600'
+              }`}>
+                {tlhResult.netWealthGain >= 0 ? '+' : ''}{formatCurrency(tlhResult.netWealthGain)}
+              </span>
+              <span className="text-xs text-slate-400 mt-0.5 block">Ending: {formatCurrency(tlhResult.harvestedEndingBalance)}</span>
+            </div>
+
+            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
+              <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider block">Loss Carryforward</span>
+              <span className="text-2xl font-bold font-mono text-amber-600 mt-1 block">
+                {formatCurrency(tlhResult.currentCarryforward)}
+              </span>
+              <span className="text-xs text-slate-400 mt-0.5 block">Protects future tax years</span>
+            </div>
+          </div>
+
+          {/* Institutional Explanation Callout */}
+          <div className="p-4 rounded-xl border bg-emerald-50/70 border-emerald-200 text-emerald-950">
+            <div className="flex items-center gap-2 font-bold text-xs">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              Direct Indexing &amp; 30-Day Substantially Identical Proxy Mechanics
+            </div>
+            <p className="text-xs mt-1 leading-relaxed text-emerald-900">
+              Under <strong>IRS Section 1091</strong>, realizing a tax loss while repurchasing a &quot;substantially identical&quot; security within 30 days disallows the loss and adds it to the new basis. Direct indexing overcomes this by immediately reallocating proceeds into highly correlated benchmark proxies (e.g. SPY &rarr; SPLG, QQQ &rarr; QQQM) that track different indices or distinct fund trusts. This legally locks in the tax deduction while retaining 100% equity market beta during rebounds.
+            </p>
+          </div>
+
+          {/* Growth Comparison Chart */}
+          <Card className="shadow-xs border-slate-200 bg-white">
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-slate-900 text-sm font-semibold">
+                    Tax-Loss Harvested Wealth vs Standard Baseline (Tax Alpha Wedge)
+                  </CardTitle>
+                  <CardDescription className="text-slate-500 text-xs">
+                    Green shaded wedge illustrates compounding gains generated by reinvesting recovered tax shield dollars into correlated proxies
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-4 text-xs font-mono">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-1 bg-emerald-500 rounded-full" />
+                    <span className="text-slate-700">TLH Active ({formatPercent(tlhResult.harvestedCAGR, 2)})</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-1 bg-slate-400 rounded-full border-dashed" />
+                    <span className="text-slate-500">Baseline ({formatPercent(tlhResult.baselineCAGR, 2)})</span>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <div className="p-4 sm:p-5">
+              <TlhGrowthChart
+                history={tlhResult.history}
+                harvestDates={tlhResult.harvestEvents.map((e) => e.date)}
+                height={340}
+              />
+            </div>
+          </Card>
+
+          {/* Proxy Substitution Matrix Table */}
+          <Card className="shadow-xs border-slate-200 bg-white">
+            <CardHeader>
+              <div>
+                <CardTitle className="text-slate-900 text-sm font-semibold">
+                  Benchmark Proxy Substitution Matrix (Wash-Sale Compliant Pairs)
+                </CardTitle>
+                <CardDescription className="text-slate-500 text-xs">
+                  Economically equivalent ETF pairs with distinct legal issuers, CUSIPs, and index methodologies to satisfy IRS guidelines
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[11px] uppercase font-mono tracking-wider text-slate-500 bg-slate-50/80">
+                    <th className="py-2.5 px-4 font-semibold">Primary Asset</th>
+                    <th className="py-2.5 px-4 font-semibold">Substitute Proxy</th>
+                    <th className="py-2.5 px-4 font-semibold">Correlation (r)</th>
+                    <th className="py-2.5 px-4 font-semibold">Tracking Spread</th>
+                    <th className="py-2.5 px-4 font-semibold">IRS Sec 1091 Non-Identical Rationale</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-mono text-[12px]">
+                  <tr className="hover:bg-slate-50/60 transition">
+                    <td className="py-2.5 px-4 font-bold text-blue-600 font-sans">SPY (SPDR S&amp;P 500)</td>
+                    <td className="py-2.5 px-4 font-bold text-emerald-600 font-sans">SPLG (SPDR Portfolio S&amp;P 500)</td>
+                    <td className="py-2.5 px-4 text-slate-800">0.999</td>
+                    <td className="py-2.5 px-4 text-slate-600">~1 bps</td>
+                    <td className="py-2.5 px-4 font-sans text-slate-600">Different share class &amp; legal UIT vs open-end fund structure</td>
+                  </tr>
+                  <tr className="hover:bg-slate-50/60 transition">
+                    <td className="py-2.5 px-4 font-bold text-blue-600 font-sans">QQQ (Invesco QQQ Trust)</td>
+                    <td className="py-2.5 px-4 font-bold text-emerald-600 font-sans">QQQM (Invesco Nasdaq 100 ETF)</td>
+                    <td className="py-2.5 px-4 text-slate-800">0.999</td>
+                    <td className="py-2.5 px-4 text-slate-600">~1 bps</td>
+                    <td className="py-2.5 px-4 font-sans text-slate-600">Distinct CUSIP, fee structure, and separate legal trust entity</td>
+                  </tr>
+                  <tr className="hover:bg-slate-50/60 transition">
+                    <td className="py-2.5 px-4 font-bold text-blue-600 font-sans">TLT (iShares 20+ Year Treasury)</td>
+                    <td className="py-2.5 px-4 font-bold text-emerald-600 font-sans">SPTL (SPDR Long Term Treasury)</td>
+                    <td className="py-2.5 px-4 text-slate-800">0.994</td>
+                    <td className="py-2.5 px-4 text-slate-600">~12 bps</td>
+                    <td className="py-2.5 px-4 font-sans text-slate-600">Different index benchmark (ICE US Treasury 20+ vs Bloomberg Long US)</td>
+                  </tr>
+                  <tr className="hover:bg-slate-50/60 transition">
+                    <td className="py-2.5 px-4 font-bold text-blue-600 font-sans">GLD (SPDR Gold Shares)</td>
+                    <td className="py-2.5 px-4 font-bold text-emerald-600 font-sans">IAU (iShares Gold Trust)</td>
+                    <td className="py-2.5 px-4 text-slate-800">0.998</td>
+                    <td className="py-2.5 px-4 text-slate-600">~6 bps</td>
+                    <td className="py-2.5 px-4 font-sans text-slate-600">Independent London vault custodians &amp; trustee fiduciary agreements</td>
+                  </tr>
+                  <tr className="hover:bg-slate-50/60 transition">
+                    <td className="py-2.5 px-4 font-bold text-blue-600 font-sans">BND (Vanguard Total Bond)</td>
+                    <td className="py-2.5 px-4 font-bold text-emerald-600 font-sans">AGG (iShares US Aggregate Bond)</td>
+                    <td className="py-2.5 px-4 text-slate-800">0.997</td>
+                    <td className="py-2.5 px-4 text-slate-600">~4 bps</td>
+                    <td className="py-2.5 px-4 font-sans text-slate-600">Float-adjusted index methodology vs standard Bloomberg Aggregate index</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Chronological Harvest Event Audit Log */}
+          <Card className="shadow-xs border-slate-200 bg-white">
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-slate-900 text-sm font-semibold">
+                    Chronological Tax-Loss Harvest Audit Log ({tlhResult.harvestEvents.length} Events)
+                  </CardTitle>
+                  <CardDescription className="text-slate-500 text-xs">
+                    Detailed ledger of depreciated tax lots systematically sold and swapped into non-identical proxies
+                  </CardDescription>
+                </div>
+                <Badge variant={tlhResult.harvestEvents.length > 0 ? 'success' : 'neutral'} className="font-mono text-xs">
+                  {tlhResult.harvestEvents.length} Harvest Transactions
+                </Badge>
+              </div>
+            </CardHeader>
+            <div className="overflow-x-auto">
+              {tlhResult.harvestEvents.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-400 font-mono">
+                  No tax lots met the {formatPercent(tlhLossThresholdPct, 0)} loss threshold with ${tlhMinDollarLoss} minimum loss during this backtest window.
+                </div>
+              ) : (
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-[11px] uppercase font-mono tracking-wider text-slate-500 bg-slate-50/80">
+                      <th className="py-2.5 px-4 font-semibold">Date</th>
+                      <th className="py-2.5 px-4 font-semibold">Trigger Asset</th>
+                      <th className="py-2.5 px-4 font-semibold">Substitute Proxy</th>
+                      <th className="py-2.5 px-4 font-semibold">Cost Basis</th>
+                      <th className="py-2.5 px-4 font-semibold">Sale Proceeds</th>
+                      <th className="py-2.5 px-4 font-semibold">Loss Harvested</th>
+                      <th className="py-2.5 px-4 font-semibold">Est. Tax Shield</th>
+                      <th className="py-2.5 px-4 font-semibold">Wash Sale Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-mono text-[12px]">
+                    {tlhResult.harvestEvents.map((evt) => (
+                      <tr key={evt.id} className="hover:bg-slate-50/60 transition">
+                        <td className="py-2 px-4 font-bold text-slate-900 font-sans">{evt.date}</td>
+                        <td className="py-2 px-4 text-blue-600 font-semibold font-sans">{evt.primarySymbol}</td>
+                        <td className="py-2 px-4 text-emerald-600 font-semibold font-sans flex items-center gap-1">
+                          <ArrowRight className="w-3 h-3 text-slate-400" />
+                          {evt.proxySymbol}
+                        </td>
+                        <td className="py-2 px-4 text-slate-700">{formatCurrency(evt.costBasis)}</td>
+                        <td className="py-2 px-4 text-slate-700">{formatCurrency(evt.saleProceeds)}</td>
+                        <td className="py-2 px-4 text-rose-600 font-bold">-{formatCurrency(evt.realizedLoss)}</td>
+                        <td className="py-2 px-4 text-emerald-600 font-bold">+{formatCurrency(evt.taxSavingsEst)}</td>
+                        <td className="py-2 px-4 font-sans">
+                          <Badge variant="success" className="text-[10px]">
+                            30D Compliant
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </Card>
+
+          {/* Annual Tax Savings & Carryforward Schedule Table */}
+          <Card className="shadow-xs border-slate-200 bg-white">
+            <CardHeader>
+              <div>
+                <CardTitle className="text-slate-900 text-sm font-semibold">
+                  Annual Tax Savings &amp; Loss Carryforward Schedule
+                </CardTitle>
+                <CardDescription className="text-slate-500 text-xs">
+                  Year-by-year accounting of capital gains offsets, ordinary income deductions ($3,000/yr IRS limit), and carryforward reservoir
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[11px] uppercase font-mono tracking-wider text-slate-500 bg-slate-50/80">
+                    <th className="py-2.5 px-4 font-semibold">Year</th>
+                    <th className="py-2.5 px-4 font-semibold">Baseline Wealth</th>
+                    <th className="py-2.5 px-4 font-semibold">Harvested Wealth</th>
+                    <th className="py-2.5 px-4 font-semibold">Losses Realized</th>
+                    <th className="py-2.5 px-4 font-semibold">Ordinary Offset</th>
+                    <th className="py-2.5 px-4 font-semibold">Tax Savings</th>
+                    <th className="py-2.5 px-4 font-semibold">Ending Carryforward</th>
+                    <th className="py-2.5 px-4 font-semibold">Cumulative Alpha</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-mono text-[12px]">
+                  {tlhResult.annualAudit.map((row) => (
+                    <tr key={row.year} className="hover:bg-slate-50/60 transition">
+                      <td className="py-2 px-4 font-bold text-slate-900 font-sans">{row.year}</td>
+                      <td className="py-2 px-4 text-slate-700">{formatCurrency(row.baselineEndingBalance)}</td>
+                      <td className="py-2 px-4 text-emerald-600 font-bold">{formatCurrency(row.harvestedEndingBalance)}</td>
+                      <td className="py-2 px-4 text-rose-600">{formatCurrency(row.realizedLossesHarvested)}</td>
+                      <td className="py-2 px-4 text-blue-600">{formatCurrency(row.ordinaryIncomeOffset)}</td>
+                      <td className="py-2 px-4 text-emerald-600 font-semibold">{formatCurrency(row.taxSavingsGenerated)}</td>
+                      <td className="py-2 px-4 text-amber-600 font-semibold">{formatCurrency(row.lossCarryforward)}</td>
+                      <td className="py-2 px-4 text-emerald-700 font-bold">+{row.annualTaxAlphaBps.toFixed(0)} bps</td>
                     </tr>
                   ))}
                 </tbody>
