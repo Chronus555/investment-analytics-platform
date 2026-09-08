@@ -11,12 +11,17 @@ import {
   runAdaptiveAllocationBacktest,
   AdaptiveWeightingMethod,
 } from '@/analytics/adaptiveAllocation';
+import {
+  runValuationTacticalBacktest,
+  ValuationMetric,
+} from '@/analytics/valuationAllocation';
 import { calculateCAGR } from '@/analytics/returns';
 import { calculateMaxDrawdown } from '@/analytics/drawdowns';
 import { calculateAnnualizedVolatility } from '@/analytics/statistics';
 import { CURATED_DATES, CURATED_RETURNS } from '@/data/curatedData';
 import { GrowthChart } from '@/components/charts/GrowthChart';
 import { TacticalStackedAllocationChart } from '@/components/charts/TacticalStackedAllocationChart';
+import { ValuationIndicatorChart } from '@/components/charts/ValuationIndicatorChart';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { MetricCard } from '@/components/ui/MetricCard';
@@ -25,6 +30,7 @@ import { formatPercent, formatRatio } from '@/utils/formatters';
 
 type TacticalModel =
   | 'adaptive_allocation'
+  | 'valuation_timing'
   | 'dual_momentum'
   | 'moving_average'
   | 'target_volatility'
@@ -41,6 +47,45 @@ export default function TacticalPage() {
   const [safeAsset, setSafeAsset] = useState('BND');
   const [targetVol, setTargetVol] = useState(0.12);
   const [targetVolAsset, setTargetVolAsset] = useState<'SPY' | 'QQQ' | 'UNIVERSE'>('SPY');
+
+  // Market Valuation parameters (Discipline 6.6)
+  const [valuationMetric, setValuationMetric] = useState<ValuationMetric>('shiller_cape');
+  const [capeUpper, setCapeUpper] = useState(30.0);
+  const [capeLower, setCapeLower] = useState(22.0);
+  const [erpUpper, setErpUpper] = useState(0.01);
+  const [erpLower, setErpLower] = useState(0.035);
+  const [minEquityWeight, setMinEquityWeight] = useState(0.30);
+  const [valuationRiskyAsset, setValuationRiskyAsset] = useState('SPY');
+  const [valuationSafeAsset, setValuationSafeAsset] = useState('BND');
+  const [valuationFreq, setValuationFreq] = useState<'monthly' | 'quarterly' | 'annual'>('monthly');
+
+  const applyValuationPreset = (name: string) => {
+    if (name === 'conservative') {
+      setValuationMetric('shiller_cape');
+      setCapeUpper(30.0);
+      setCapeLower(22.0);
+      setMinEquityWeight(0.30);
+      setValuationSafeAsset('BND');
+    } else if (name === 'aggressive') {
+      setValuationMetric('shiller_cape');
+      setCapeUpper(28.0);
+      setCapeLower(20.0);
+      setMinEquityWeight(0.20);
+      setValuationSafeAsset('BIL');
+    } else if (name === 'erp_tilt') {
+      setValuationMetric('equity_risk_premium');
+      setErpUpper(0.01);
+      setErpLower(0.035);
+      setMinEquityWeight(0.30);
+      setValuationSafeAsset('BND');
+    } else if (name === 'moderate') {
+      setValuationMetric('shiller_cape');
+      setCapeUpper(32.0);
+      setCapeLower(24.0);
+      setMinEquityWeight(0.50);
+      setValuationSafeAsset('BND');
+    }
+  };
 
   // Candidate universe across equities, bonds, real estate, and commodities
   const universe = ['SPY', 'QQQ', 'IWM', 'EFA', 'EEM', 'VNQ', 'GLD', 'TLT'];
@@ -65,7 +110,16 @@ export default function TacticalPage() {
   }, []);
 
   // Run strategy
-  const { strategyGrowth, benchmarkGrowth, summary, tradeLog, allSignals, annualTurnover } = useMemo(() => {
+  const {
+    strategyGrowth,
+    benchmarkGrowth,
+    classic6040Growth,
+    summary,
+    tradeLog,
+    allSignals,
+    valuationSignals,
+    annualTurnover,
+  } = useMemo(() => {
     if (strategyType === 'adaptive_allocation') {
       const res = runAdaptiveAllocationBacktest(
         dates,
@@ -92,6 +146,7 @@ export default function TacticalPage() {
       return {
         strategyGrowth: res.strategyGrowth,
         benchmarkGrowth: res.benchmarkGrowth,
+        classic6040Growth: undefined,
         summary: {
           stratCAGR: res.cagr,
           benchCAGR,
@@ -105,7 +160,63 @@ export default function TacticalPage() {
         },
         annualTurnover: res.turnover,
         allSignals: res.signals,
+        valuationSignals: undefined,
         tradeLog: res.signals.slice(-12).reverse(),
+      };
+    }
+
+    if (strategyType === 'valuation_timing') {
+      const res = runValuationTacticalBacktest(
+        dates,
+        returns,
+        {
+          metric: valuationMetric,
+          upperThreshold: valuationMetric === 'shiller_cape' ? capeUpper : erpUpper,
+          lowerThreshold: valuationMetric === 'shiller_cape' ? capeLower : erpLower,
+          minEquityWeight,
+          riskyAsset: valuationRiskyAsset,
+          safeAsset: valuationSafeAsset,
+          rebalanceFrequency: valuationFreq,
+        },
+        0.02
+      );
+
+      const stackedSignals = res.signals.map((sig) => ({
+        date: sig.date,
+        selectedAssets: {
+          [valuationRiskyAsset]: sig.targetEquityWeight,
+          [valuationSafeAsset]: sig.targetSafeWeight,
+        },
+        cashWeight: sig.targetSafeWeight,
+      }));
+
+      let wins = 0;
+      for (let i = 1; i < res.strategyGrowth.length; i++) {
+        const stratRet = (res.strategyGrowth[i].value - res.strategyGrowth[i - 1].value) / res.strategyGrowth[i - 1].value;
+        const benchRet = (res.benchmarkGrowth[i].value - res.benchmarkGrowth[i - 1].value) / res.benchmarkGrowth[i - 1].value;
+        if (stratRet >= benchRet) wins++;
+      }
+      const winRate = res.strategyGrowth.length > 1 ? (wins / (res.strategyGrowth.length - 1)) * 100 : 50;
+
+      return {
+        strategyGrowth: res.strategyGrowth,
+        benchmarkGrowth: res.benchmarkGrowth,
+        classic6040Growth: res.classic6040Growth,
+        summary: {
+          stratCAGR: res.cagr,
+          benchCAGR: res.benchmarkCAGR,
+          stratVol: res.volatility,
+          benchVol: res.benchmarkVol,
+          stratMDD: res.maxDrawdown,
+          benchMDD: res.benchmarkMDD,
+          stratSharpe: res.sharpeRatio,
+          benchSharpe: res.benchmarkSharpe,
+          winRate,
+        },
+        annualTurnover: res.annualTurnover * 100,
+        allSignals: stackedSignals,
+        valuationSignals: res.signals,
+        tradeLog: stackedSignals.slice(-12).reverse(),
       };
     }
 
@@ -121,52 +232,54 @@ export default function TacticalPage() {
       signals = runRelativeMomentumStrategy(dates, prices, universe, lookbackMonths, topHoldings);
     }
 
-    // Simulate portfolio value over time
     const startIdx = dates.length - signals.length;
     let stratVal = 10000;
     let benchVal = 10000;
 
     const stratGrowth = [{ date: dates[startIdx - 1] || '2007-01-01', value: stratVal }];
     const benchGrowth = [{ date: dates[startIdx - 1] || '2007-01-01', value: benchVal }];
+
     const stratRets: number[] = [];
     const benchRets: number[] = [];
-
+    let wins = 0;
     let totalTurnover = 0;
-    let prevWeights: Record<string, number> = {};
 
     for (let t = 0; t < signals.length; t++) {
       const sig = signals[t];
-      const actualIdx = startIdx + t;
+      const nextIdx = startIdx + t;
+      if (nextIdx >= dates.length) break;
 
-      // Turnover
-      const allSyms = new Set([...Object.keys(prevWeights), ...Object.keys(sig.selectedAssets)]);
-      let diff = 0;
-      allSyms.forEach((sym) => {
-        diff += Math.abs((sig.selectedAssets[sym] || 0) - (prevWeights[sym] || 0));
-      });
-      totalTurnover += diff / 2;
-      prevWeights = sig.selectedAssets;
-
-      // Compute weighted return for current period
-      let periodStratRet = 0;
+      let rStrat = 0;
       Object.entries(sig.selectedAssets).forEach(([sym, w]) => {
-        const ret = CURATED_RETURNS[sym]?.[actualIdx] || 0;
-        periodStratRet += w * ret;
+        const r = returns[sym]?.[nextIdx] || 0;
+        rStrat += w * r;
       });
 
-      const spyRet = CURATED_RETURNS['SPY']?.[actualIdx] || 0;
+      const rBench = returns['SPY']?.[nextIdx] || 0;
 
-      stratVal *= 1 + periodStratRet;
-      benchVal *= 1 + spyRet;
+      stratVal *= 1 + rStrat;
+      benchVal *= 1 + rBench;
 
-      stratGrowth.push({ date: sig.date, value: stratVal });
-      benchGrowth.push({ date: sig.date, value: benchVal });
+      stratGrowth.push({ date: dates[nextIdx], value: Math.round(stratVal * 100) / 100 });
+      benchGrowth.push({ date: dates[nextIdx], value: Math.round(benchVal * 100) / 100 });
 
-      stratRets.push(periodStratRet);
-      benchRets.push(spyRet);
+      stratRets.push(rStrat);
+      benchRets.push(rBench);
+
+      if (rStrat >= rBench) wins++;
+
+      if (t > 0) {
+        const prevAssets = signals[t - 1].selectedAssets;
+        let dW = 0;
+        const allKeys = Array.from(new Set([...Object.keys(sig.selectedAssets), ...Object.keys(prevAssets)]));
+        allKeys.forEach((k) => {
+          dW += Math.abs((sig.selectedAssets[k] || 0) - (prevAssets[k] || 0));
+        });
+        totalTurnover += dW / 2;
+      }
     }
 
-    const durationYears = signals.length / 12;
+    const durationYears = stratRets.length / 12;
     const stratCAGR = calculateCAGR(10000, stratVal, durationYears);
     const benchCAGR = calculateCAGR(10000, benchVal, durationYears);
     const stratVol = calculateAnnualizedVolatility(stratRets, 12);
@@ -174,15 +287,15 @@ export default function TacticalPage() {
     const stratMDD = calculateMaxDrawdown(stratGrowth.map((g) => g.value));
     const benchMDD = calculateMaxDrawdown(benchGrowth.map((g) => g.value));
 
-    let winMonths = 0;
-    for (let i = 0; i < stratRets.length; i++) {
-      if (stratRets[i] > benchRets[i]) winMonths++;
-    }
-    const winRate = stratRets.length > 0 ? (winMonths / stratRets.length) * 100 : 0;
+    const stratSharpe = stratVol > 0 ? (stratCAGR - 0.02) / stratVol : 0;
+    const benchSharpe = benchVol > 0 ? (benchCAGR - 0.02) / benchVol : 0;
+    const winRate = stratRets.length > 0 ? (wins / stratRets.length) * 100 : 0;
+    const annualTurnover = durationYears > 0 ? (totalTurnover / durationYears) * 100 : 0;
 
     return {
       strategyGrowth: stratGrowth,
       benchmarkGrowth: benchGrowth,
+      classic6040Growth: undefined,
       summary: {
         stratCAGR,
         benchCAGR,
@@ -190,12 +303,13 @@ export default function TacticalPage() {
         benchVol,
         stratMDD,
         benchMDD,
-        stratSharpe: stratVol > 0 ? (stratCAGR - 0.02) / stratVol : 0,
-        benchSharpe: benchVol > 0 ? (benchCAGR - 0.02) / benchVol : 0,
+        stratSharpe,
+        benchSharpe,
         winRate,
       },
-      annualTurnover: durationYears > 0 ? (totalTurnover / durationYears) * 100 : 0,
+      annualTurnover,
       allSignals: signals,
+      valuationSignals: undefined,
       tradeLog: signals.slice(-12).reverse(),
     };
   }, [
@@ -209,13 +323,24 @@ export default function TacticalPage() {
     safeAsset,
     targetVol,
     targetVolAsset,
+    valuationMetric,
+    capeUpper,
+    capeLower,
+    erpUpper,
+    erpLower,
+    minEquityWeight,
+    valuationRiskyAsset,
+    valuationSafeAsset,
+    valuationFreq,
     dates,
     prices,
     returns,
+    universe,
   ]);
 
   const strategyNames: Record<TacticalModel, string> = {
     adaptive_allocation: `Adaptive Asset Allocation (Top ${topHoldings} ${weightingMethod.replace('_', ' ').toUpperCase()})`,
+    valuation_timing: `Market Valuation Timing (${valuationMetric === 'shiller_cape' ? 'Shiller CAPE' : 'ERP Yield Gap'})`,
     dual_momentum: 'Antonacci Dual Momentum',
     moving_average: `10-Month SMA Trend (${smaWindow}M)`,
     target_volatility: `Target Volatility (${formatPercent(targetVol, 0)})`,
@@ -224,6 +349,9 @@ export default function TacticalPage() {
 
   const growthSeries = [
     { id: 'strat', name: strategyNames[strategyType], color: '#2563eb', data: strategyGrowth },
+    ...(classic6040Growth
+      ? [{ id: 'classic6040', name: 'Classic 60/40 Benchmark', color: '#10b981', data: classic6040Growth }]
+      : []),
     { id: 'bench', name: 'SPY (Buy & Hold)', color: '#64748b', data: benchmarkGrowth },
   ];
 
@@ -232,8 +360,8 @@ export default function TacticalPage() {
       {/* Page Header */}
       <PageHeader
         title="Tactical Strategy & Momentum Lab"
-        description="Backtest ReSolve Adaptive Asset Allocation, Gary Antonacci Dual Momentum cross-asset rotation, 10-month SMA trend following, Target Volatility dynamic scaling, and Relative Strength rotation."
-        badge={<Badge variant="info">Tactical Suite (5 Models)</Badge>}
+        description="Backtest ReSolve Adaptive Asset Allocation, Shiller CAPE Market Valuation Timing, Gary Antonacci Dual Momentum, 10-month SMA trend following, Target Volatility, and Relative Strength rotation."
+        badge={<Badge variant="info">Complete Tactical Suite (6 Models)</Badge>}
       />
 
       {/* Strategy Selector & Parameters Card */}
@@ -248,7 +376,17 @@ export default function TacticalPage() {
                   : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
               }`}
             >
-              Adaptive Asset Allocation (AAA)
+              Adaptive Asset Allocation (6.4)
+            </button>
+            <button
+              onClick={() => setStrategyType('valuation_timing')}
+              className={`h-8 px-3.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                strategyType === 'valuation_timing'
+                  ? 'bg-blue-600 text-white shadow-xs font-semibold'
+                  : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              Market Valuation / Shiller CAPE (6.6)
             </button>
             <button
               onClick={() => setStrategyType('dual_momentum')}
@@ -258,7 +396,7 @@ export default function TacticalPage() {
                   : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
               }`}
             >
-              Antonacci Dual Momentum
+              Antonacci Dual Momentum (6.3)
             </button>
             <button
               onClick={() => setStrategyType('moving_average')}
@@ -268,7 +406,7 @@ export default function TacticalPage() {
                   : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
               }`}
             >
-              10-Month SMA Trend
+              10-Month SMA Trend (6.1)
             </button>
             <button
               onClick={() => setStrategyType('target_volatility')}
@@ -278,7 +416,7 @@ export default function TacticalPage() {
                   : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
               }`}
             >
-              Target Volatility
+              Target Volatility (6.5)
             </button>
             <button
               onClick={() => setStrategyType('relative_momentum')}
@@ -288,18 +426,190 @@ export default function TacticalPage() {
                   : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
               }`}
             >
-              Relative Strength Rotation
+              Relative Strength Rotation (6.2)
             </button>
           </div>
           <span className="text-xs font-mono text-slate-500">
-            Universe: {universe.join(', ')}
+            {strategyType === 'valuation_timing'
+              ? `Assets: Risky (${valuationRiskyAsset}), Safe (${valuationSafeAsset}) | Timeline: 2007-2026 (229 Months)`
+              : `Universe: ${universe.join(', ')}`}
           </span>
         </CardHeader>
 
         <div className="p-4 sm:p-5">
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4 text-xs">
-            {strategyType === 'adaptive_allocation' && (
-              <>
+          {/* Valuation Timing Controls (Discipline 6.6) */}
+          {strategyType === 'valuation_timing' && (
+            <div className="space-y-4">
+              {/* Presets */}
+              <div>
+                <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider font-semibold block mb-2">
+                  Market Valuation Strategy Presets
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => applyValuationPreset('conservative')}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-700 border border-slate-200 transition-colors cursor-pointer"
+                  >
+                    Conservative De-risking (CAPE &gt; 30)
+                  </button>
+                  <button
+                    onClick={() => applyValuationPreset('aggressive')}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-700 border border-slate-200 transition-colors cursor-pointer"
+                  >
+                    Aggressive Mean-Reversion (CAPE &gt; 28)
+                  </button>
+                  <button
+                    onClick={() => applyValuationPreset('erp_tilt')}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-700 border border-slate-200 transition-colors cursor-pointer"
+                  >
+                    Fed Model ERP Yield Gap
+                  </button>
+                  <button
+                    onClick={() => applyValuationPreset('moderate')}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-700 border border-slate-200 transition-colors cursor-pointer"
+                  >
+                    Moderate Guardrails (CAPE &gt; 32)
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    Valuation Metric
+                  </label>
+                  <select
+                    value={valuationMetric}
+                    onChange={(e) => setValuationMetric(e.target.value as ValuationMetric)}
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
+                  >
+                    <option value="shiller_cape">Shiller CAPE (P/E 10)</option>
+                    <option value="equity_risk_premium">Equity Risk Premium (ERP / Fed Model)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    {valuationMetric === 'shiller_cape' ? 'Overvalued Limit (De-risk)' : 'Tight ERP Limit (De-risk)'}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={valuationMetric === 'shiller_cape' ? 24 : 0.0}
+                      max={valuationMetric === 'shiller_cape' ? 36 : 0.025}
+                      step={valuationMetric === 'shiller_cape' ? 0.5 : 0.001}
+                      value={valuationMetric === 'shiller_cape' ? capeUpper : erpUpper}
+                      onChange={(e) =>
+                        valuationMetric === 'shiller_cape'
+                          ? setCapeUpper(parseFloat(e.target.value))
+                          : setErpUpper(parseFloat(e.target.value))
+                      }
+                      className="w-full accent-blue-600"
+                    />
+                    <span className="font-mono font-semibold text-slate-900 min-w-[50px] text-right">
+                      {valuationMetric === 'shiller_cape' ? `${capeUpper.toFixed(1)}x` : formatPercent(erpUpper, 1)}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    {valuationMetric === 'shiller_cape' ? 'Undervalued Limit (Risk-On)' : 'Wide ERP Limit (Risk-On)'}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={valuationMetric === 'shiller_cape' ? 16 : 0.02}
+                      max={valuationMetric === 'shiller_cape' ? 26 : 0.05}
+                      step={valuationMetric === 'shiller_cape' ? 0.5 : 0.001}
+                      value={valuationMetric === 'shiller_cape' ? capeLower : erpLower}
+                      onChange={(e) =>
+                        valuationMetric === 'shiller_cape'
+                          ? setCapeLower(parseFloat(e.target.value))
+                          : setErpLower(parseFloat(e.target.value))
+                      }
+                      className="w-full accent-blue-600"
+                    />
+                    <span className="font-mono font-semibold text-slate-900 min-w-[50px] text-right">
+                      {valuationMetric === 'shiller_cape' ? `${capeLower.toFixed(1)}x` : formatPercent(erpLower, 1)}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    Min Equity Floor (De-Risked)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={0.1}
+                      max={0.6}
+                      step={0.05}
+                      value={minEquityWeight}
+                      onChange={(e) => setMinEquityWeight(parseFloat(e.target.value))}
+                      className="w-full accent-blue-600"
+                    />
+                    <span className="font-mono font-semibold text-slate-900 min-w-[50px] text-right">
+                      {formatPercent(minEquityWeight, 0)}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    Risky Equity Core
+                  </label>
+                  <select
+                    value={valuationRiskyAsset}
+                    onChange={(e) => setValuationRiskyAsset(e.target.value)}
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
+                  >
+                    <option value="SPY">SPY (S&amp;P 500 US Large Cap)</option>
+                    <option value="QQQ">QQQ (Nasdaq 100 Growth)</option>
+                    <option value="VTI">VTI (Total US Stock Market)</option>
+                    <option value="IWM">IWM (Russell 2000 Small Cap)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    Defensive Safe Haven
+                  </label>
+                  <select
+                    value={valuationSafeAsset}
+                    onChange={(e) => setValuationSafeAsset(e.target.value)}
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
+                  >
+                    <option value="BND">BND (Vanguard Total Bond Market)</option>
+                    <option value="TLT">TLT (20+ Year Long Treasuries)</option>
+                    <option value="BIL">BIL (1-3M Treasury Bills / Cash)</option>
+                    <option value="GLD">GLD (SPDR Gold Shares)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
+                    Rebalance Frequency
+                  </label>
+                  <select
+                    value={valuationFreq}
+                    onChange={(e) => setValuationFreq(e.target.value as 'monthly' | 'quarterly' | 'annual')}
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:outline-none font-mono cursor-pointer"
+                  >
+                    <option value="monthly">Monthly Rebalancing</option>
+                    <option value="quarterly">Quarterly Rebalancing</option>
+                    <option value="annual">Annual Rebalancing</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {strategyType !== 'valuation_timing' && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4 text-xs">
+              {strategyType === 'adaptive_allocation' && (
+                <>
                 <div>
                   <label className="block text-slate-600 mb-1.5 text-[11px] font-mono uppercase tracking-wider font-semibold">
                     Momentum Lookback (Rank)
@@ -552,6 +862,7 @@ export default function TacticalPage() {
               </>
             )}
           </div>
+        )}
         </div>
       </Card>
 
@@ -598,6 +909,29 @@ export default function TacticalPage() {
       {/* Growth Chart */}
       <GrowthChart series={growthSeries} height={350} />
 
+      {/* Valuation Multiplier Chart (Discipline 6.6) */}
+      {strategyType === 'valuation_timing' && valuationSignals && (
+        <Card className="shadow-xs border-slate-200 bg-white">
+          <CardHeader>
+            <div>
+              <CardTitle className="text-slate-900">Historical Market Valuation Multiplier &amp; Threshold Bands</CardTitle>
+              <CardDescription className="text-slate-500">
+                Tracking {valuationMetric === 'shiller_cape' ? 'Shiller CAPE ratio' : 'Equity Risk Premium'} with counter-cyclical de-risking barriers (2007-2026)
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <div className="p-4 sm:p-5">
+            <ValuationIndicatorChart
+              signals={valuationSignals}
+              metric={valuationMetric}
+              upperThreshold={valuationMetric === 'shiller_cape' ? capeUpper : erpUpper}
+              lowerThreshold={valuationMetric === 'shiller_cape' ? capeLower : erpLower}
+              height={260}
+            />
+          </div>
+        </Card>
+      )}
+
       {/* Tactical Stacked Dynamic Allocation Chart */}
       <Card className="shadow-xs border-slate-200 bg-white">
         <CardHeader>
@@ -617,7 +951,7 @@ export default function TacticalPage() {
       <Card className="shadow-xs border-slate-200 bg-white">
         <CardHeader>
           <div>
-            <CardTitle className="text-slate-900">Recent Monthly Tactical Allocations & Signals</CardTitle>
+            <CardTitle className="text-slate-900">Recent Monthly Tactical Allocations &amp; Signals</CardTitle>
             <CardDescription className="text-slate-500">Execution history over the past 12 months</CardDescription>
           </div>
         </CardHeader>
@@ -628,7 +962,7 @@ export default function TacticalPage() {
               <tr className="border-b border-slate-200 text-[11px] uppercase font-mono tracking-wider text-slate-500 bg-slate-50/80">
                 <th className="py-2.5 px-4 font-semibold">Period</th>
                 <th className="py-2.5 px-4 font-semibold">Target Regime</th>
-                <th className="py-2.5 px-4 font-semibold">Selected Assets & Weights</th>
+                <th className="py-2.5 px-4 font-semibold">Selected Assets &amp; Weights</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-mono text-[12px]">
@@ -636,7 +970,13 @@ export default function TacticalPage() {
                 let badgeText = 'Offensive Momentum';
                 let badgeVariant: 'success' | 'warning' | 'info' | 'neutral' = 'success';
 
-                if (strategyType === 'adaptive_allocation') {
+                if (strategyType === 'valuation_timing') {
+                  const isDeRisked = (log.cashWeight ?? 0) >= 0.20;
+                  badgeText = isDeRisked
+                    ? `De-Risked (${formatPercent(log.cashWeight ?? 0, 0)} Safe)`
+                    : 'Risk-On (Equities)';
+                  badgeVariant = isDeRisked ? 'warning' : 'success';
+                } else if (strategyType === 'adaptive_allocation') {
                   const isDefensive = (log.cashWeight ?? 0) > 0.10;
                   badgeText = isDefensive
                     ? `Crash Buffer (${formatPercent(log.cashWeight ?? 0, 0)} Safe)`
