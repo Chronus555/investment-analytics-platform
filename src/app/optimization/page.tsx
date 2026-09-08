@@ -4,13 +4,21 @@ import React, { useState, useMemo } from 'react';
 import {
   solveOptimization,
   generateEfficientFrontier,
-  EfficientFrontierPoint
+  EfficientFrontierPoint,
+  solveMostDiversifiedPortfolio,
+  solveMinCVaR,
+  solveMaxSortino,
+  solveKellyCriterion,
+  calculatePortfolioReturn,
+  calculateDiversificationRatio,
+  calculatePortfolioCVaR,
+  calculatePortfolioSortino,
 } from '@/analytics/optimization';
 import { solveRiskParity, RiskParityResult } from '@/analytics/riskParity';
 import { calculateCovarianceMatrix, calculateMean } from '@/analytics/statistics';
 import { solveBlackLitterman, BlackLittermanView } from '@/analytics/blackLitterman';
 import { CURATED_SECURITIES, CURATED_RETURNS } from '@/data/curatedData';
-import { FrontierChart } from '@/components/charts/FrontierChart';
+import { FrontierChart, LandmarkPortfolio } from '@/components/charts/FrontierChart';
 import { BlackLittermanComparisonChart } from '@/components/charts/BlackLittermanComparisonChart';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
@@ -50,6 +58,7 @@ const DEFAULT_MARKET_CAP_WEIGHTS: Record<string, number> = {
 
 export default function OptimizationPage() {
   const [activeMode, setActiveMode] = useState<'frontier' | 'black_litterman' | 'walk_forward'>('frontier');
+  const [selectedLandmarkModel, setSelectedLandmarkModel] = useState<string>('max_sharpe');
 
   // Walk-Forward State
   const [wfModel, setWfModel] = useState<WalkForwardModel>('max_sharpe');
@@ -181,6 +190,208 @@ export default function OptimizationPage() {
     }
     return solveRiskParity(validSymbols, covMatrix);
   }, [validSymbols, covMatrix]);
+
+  // Aligned Period Returns Matrix [T x N]
+  const periodReturns = useMemo<number[][]>(() => {
+    if (validSymbols.length === 0) return [];
+    const nMonths = CURATED_RETURNS[validSymbols[0]]?.length || 0;
+    const rows: number[][] = [];
+    for (let t = 0; t < nMonths; t++) {
+      rows.push(validSymbols.map((s) => CURATED_RETURNS[s][t] || 0));
+    }
+    return rows;
+  }, [validSymbols]);
+
+  // 4. Most Diversified Portfolio (Choueifaty MDP)
+  const mdpResult = useMemo(() => {
+    if (validSymbols.length < 2) return null;
+    return solveMostDiversifiedPortfolio(validSymbols, covMatrix, expectedReturns, { minWeight, maxWeight });
+  }, [validSymbols, covMatrix, expectedReturns, minWeight, maxWeight]);
+
+  // 5. Minimum CVaR (95% Expected Shortfall)
+  const minCvarResult = useMemo(() => {
+    if (validSymbols.length < 2 || periodReturns.length === 0) return null;
+    return solveMinCVaR(validSymbols, periodReturns, expectedReturns, covMatrix, 0.95, { minWeight, maxWeight });
+  }, [validSymbols, periodReturns, expectedReturns, covMatrix, minWeight, maxWeight]);
+
+  // 6. Maximum Sortino Ratio
+  const maxSortinoResult = useMemo(() => {
+    if (validSymbols.length < 2 || periodReturns.length === 0) return null;
+    return solveMaxSortino(validSymbols, expectedReturns, periodReturns, covMatrix, riskFreeRate, { minWeight, maxWeight });
+  }, [validSymbols, expectedReturns, periodReturns, covMatrix, riskFreeRate, minWeight, maxWeight]);
+
+  // 7. Kelly Criterion (Growth-Rate Optimal Half Kelly f=0.5)
+  const kellyResult = useMemo(() => {
+    if (validSymbols.length < 2) return null;
+    return solveKellyCriterion(validSymbols, expectedReturns, covMatrix, 0.5, { minWeight, maxWeight });
+  }, [validSymbols, expectedReturns, covMatrix, minWeight, maxWeight]);
+
+  // Consolidated Landmark Models Suite
+  const landmarkSummaries = useMemo(() => {
+    if (validSymbols.length < 2) return [];
+
+    const rpWeightsArr = validSymbols.map((s) => riskParity.weights[s] || 0);
+    const rpRet = calculatePortfolioReturn(rpWeightsArr, expectedReturns);
+    const rpVol = riskParity.portfolioVolatility;
+    const rpSharpe = rpVol > 0 ? (rpRet - riskFreeRate) / rpVol : 0;
+    const rpSortino = calculatePortfolioSortino(rpWeightsArr, rpRet, periodReturns, riskFreeRate);
+    const rpDR = calculateDiversificationRatio(rpWeightsArr, covMatrix);
+    const rpCVaR = calculatePortfolioCVaR(rpWeightsArr, periodReturns, 0.95);
+
+    const msWeightsArr = validSymbols.map((s) => maxSharpe.weights[s] || 0);
+    const msSortino = calculatePortfolioSortino(msWeightsArr, maxSharpe.return, periodReturns, riskFreeRate);
+    const msDR = calculateDiversificationRatio(msWeightsArr, covMatrix);
+    const msCVaR = calculatePortfolioCVaR(msWeightsArr, periodReturns, 0.95);
+
+    const mvWeightsArr = validSymbols.map((s) => minVar.weights[s] || 0);
+    const mvSortino = calculatePortfolioSortino(mvWeightsArr, minVar.return, periodReturns, riskFreeRate);
+    const mvDR = calculateDiversificationRatio(mvWeightsArr, covMatrix);
+    const mvCVaR = calculatePortfolioCVaR(mvWeightsArr, periodReturns, 0.95);
+
+    const mdpWeightsArr = mdpResult ? validSymbols.map((s) => mdpResult.weights[s] || 0) : [];
+    const mdpSortino = mdpResult ? calculatePortfolioSortino(mdpWeightsArr, mdpResult.expectedReturn, periodReturns, riskFreeRate) : 0;
+    const mdpCVaR = mdpResult ? calculatePortfolioCVaR(mdpWeightsArr, periodReturns, 0.95) : 0;
+
+    const cvarWeightsArr = minCvarResult ? validSymbols.map((s) => minCvarResult.weights[s] || 0) : [];
+    const cvarSortino = minCvarResult ? calculatePortfolioSortino(cvarWeightsArr, minCvarResult.expectedReturn, periodReturns, riskFreeRate) : 0;
+    const cvarDR = minCvarResult ? calculateDiversificationRatio(cvarWeightsArr, covMatrix) : 0;
+
+    const sortWeightsArr = maxSortinoResult ? validSymbols.map((s) => maxSortinoResult.weights[s] || 0) : [];
+    const sortDR = maxSortinoResult ? calculateDiversificationRatio(sortWeightsArr, covMatrix) : 0;
+    const sortCVaR = maxSortinoResult ? calculatePortfolioCVaR(sortWeightsArr, periodReturns, 0.95) : 0;
+
+    const kellyWeightsArr = kellyResult ? validSymbols.map((s) => kellyResult.weights[s] || 0) : [];
+    const kellySortino = kellyResult ? calculatePortfolioSortino(kellyWeightsArr, kellyResult.expectedReturn, periodReturns, riskFreeRate) : 0;
+    const kellyDR = kellyResult ? calculateDiversificationRatio(kellyWeightsArr, covMatrix) : 0;
+    const kellyCVaR = kellyResult ? calculatePortfolioCVaR(kellyWeightsArr, periodReturns, 0.95) : 0;
+
+    return [
+      {
+        id: 'max_sharpe',
+        name: 'Max Sharpe (Tangency)',
+        shortName: 'Max Sharpe',
+        badge: 'Maximum Efficiency',
+        color: '#16a34a', // emerald
+        description: 'Maximizes risk-adjusted excess return per unit of total portfolio volatility',
+        return: maxSharpe.return,
+        volatility: maxSharpe.volatility,
+        sharpe: maxSharpe.sharpeRatio,
+        sortino: msSortino,
+        diversificationRatio: msDR,
+        cvar95: msCVaR,
+        weights: maxSharpe.weights,
+      },
+      {
+        id: 'min_var',
+        name: 'Minimum Volatility',
+        shortName: 'Min Vol',
+        badge: 'Lowest Variance',
+        color: '#d97706', // amber
+        description: 'Minimizes annualized portfolio variance without consideration of expected return',
+        return: minVar.return,
+        volatility: minVar.volatility,
+        sharpe: minVar.sharpeRatio,
+        sortino: mvSortino,
+        diversificationRatio: mvDR,
+        cvar95: mvCVaR,
+        weights: minVar.weights,
+      },
+      {
+        id: 'risk_parity',
+        name: 'Equal Risk Parity (ERC)',
+        shortName: 'Risk Parity',
+        badge: 'Balanced Risk',
+        color: '#8b5cf6', // purple
+        description: 'Equalizes percentage marginal risk contributions (%RC_i = 1/N) across all assets',
+        return: rpRet,
+        volatility: rpVol,
+        sharpe: rpSharpe,
+        sortino: rpSortino,
+        diversificationRatio: rpDR,
+        cvar95: rpCVaR,
+        weights: riskParity.weights,
+      },
+      {
+        id: 'choueifaty_mdp',
+        name: 'Most Diversified (Choueifaty MDP)',
+        shortName: 'Most Diversified',
+        badge: 'Diversification Ratio Max',
+        color: '#0284c7', // sky
+        description: 'Maximizes weighted average asset volatility over total portfolio volatility',
+        return: mdpResult?.expectedReturn || 0,
+        volatility: mdpResult?.volatility || 0,
+        sharpe: mdpResult?.sharpeRatio || 0,
+        sortino: mdpSortino,
+        diversificationRatio: mdpResult?.diversificationRatio || 0,
+        cvar95: mdpCVaR,
+        weights: mdpResult?.weights || {},
+      },
+      {
+        id: 'min_cvar',
+        name: 'Minimum CVaR (95% Tail Risk)',
+        shortName: 'Min CVaR',
+        badge: 'Tail Risk Shield',
+        color: '#e11d48', // rose
+        description: 'Minimizes expected shortfall (average loss in the worst 5% historical months)',
+        return: minCvarResult?.expectedReturn || 0,
+        volatility: minCvarResult?.volatility || 0,
+        sharpe: minCvarResult?.sharpeRatio || 0,
+        sortino: cvarSortino,
+        diversificationRatio: cvarDR,
+        cvar95: minCvarResult?.cvar95 || 0,
+        weights: minCvarResult?.weights || {},
+      },
+      {
+        id: 'max_sortino',
+        name: 'Maximum Sortino Ratio',
+        shortName: 'Max Sortino',
+        badge: 'Downside Risk Optimal',
+        color: '#0d9488', // teal
+        description: 'Maximizes return relative strictly to downside semi-variance below zero',
+        return: maxSortinoResult?.expectedReturn || 0,
+        volatility: maxSortinoResult?.volatility || 0,
+        sharpe: maxSortinoResult?.sharpeRatio || 0,
+        sortino: maxSortinoResult?.sortinoRatio || 0,
+        diversificationRatio: sortDR,
+        cvar95: sortCVaR,
+        weights: maxSortinoResult?.weights || {},
+      },
+      {
+        id: 'kelly',
+        name: 'Kelly Criterion (Half Kelly f=0.5)',
+        shortName: 'Kelly Optimal',
+        badge: 'Log Utility Growth',
+        color: '#4f46e5', // indigo
+        description: 'Maximizes expected geometric wealth growth rate G(w) with half-fraction safety buffer',
+        return: kellyResult?.expectedReturn || 0,
+        volatility: kellyResult?.volatility || 0,
+        sharpe: kellyResult?.sharpeRatio || 0,
+        sortino: kellySortino,
+        diversificationRatio: kellyDR,
+        cvar95: kellyCVaR,
+        weights: kellyResult?.weights || {},
+      },
+    ];
+  }, [validSymbols, expectedReturns, covMatrix, periodReturns, riskFreeRate, maxSharpe, minVar, riskParity, mdpResult, minCvarResult, maxSortinoResult, kellyResult]);
+
+  // Landmark Portfolios formatted for FrontierChart
+  const landmarkPortfolios = useMemo<LandmarkPortfolio[]>(() => {
+    return landmarkSummaries.map((m) => ({
+      id: m.id,
+      name: m.name,
+      shortName: m.shortName,
+      color: m.color,
+      return: m.return,
+      volatility: m.volatility,
+      sharpe: m.sharpe,
+      weights: m.weights,
+    }));
+  }, [landmarkSummaries]);
+
+  // Active selected landmark model
+  const activeLandmark = useMemo(() => {
+    return landmarkSummaries.find((m) => m.id === selectedLandmarkModel) || landmarkSummaries[0];
+  }, [landmarkSummaries, selectedLandmarkModel]);
 
   // Black-Litterman Normalized Market Cap Weights
   const marketCapWeights = useMemo(() => {
@@ -428,164 +639,243 @@ export default function OptimizationPage() {
               <FrontierChart
                 frontier={frontier}
                 individualAssets={individualAssets}
+                landmarkPortfolios={landmarkPortfolios}
                 maxSharpePortfolio={maxSharpe}
                 minVarPortfolio={minVar}
               />
             </CardContent>
           </Card>
 
-          {/* Optimal Allocations Comparison */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-            {/* Tangency / Max Sharpe */}
+          {/* Featured Landmark Model Inspector */}
+          {activeLandmark && (
             <Card className="shadow-xs border-slate-200 bg-white">
               <CardHeader>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
-                  <CardTitle className="text-slate-900 text-sm font-semibold">
-                    Max Sharpe (Tangency)
-                  </CardTitle>
-                </div>
-                <Badge variant="success">Sharpe {formatRatio(maxSharpe.sharpeRatio, 2)}</Badge>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <span className="text-[10px] text-slate-500 block uppercase font-sans">
-                      Exp Return
-                    </span>
-                    <span className="font-semibold text-emerald-600">
-                      {formatPercent(maxSharpe.return, 2)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 block uppercase font-sans">
-                      Annual Vol
-                    </span>
-                    <span className="font-semibold text-slate-800">
-                      {formatPercent(maxSharpe.volatility, 2)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5 pt-1">
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-semibold font-sans">
-                    Allocations
-                  </div>
-                  {Object.entries(maxSharpe.weights)
-                    .filter(([_, w]) => w > 0.001)
-                    .map(([sym, w]) => (
-                      <div key={sym} className="flex justify-between items-center text-xs">
-                        <span className="font-mono font-medium text-slate-700">{sym}</span>
-                        <span className="font-mono font-semibold text-emerald-700">
-                          {formatPercent(w, 1)}
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Min Variance */}
-            <Card className="shadow-xs border-slate-200 bg-white">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-                  <CardTitle className="text-slate-900 text-sm font-semibold">
-                    Minimum Volatility
-                  </CardTitle>
-                </div>
-                <Badge variant="info">Vol {formatPercent(minVar.volatility, 1)}</Badge>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                  <div>
-                    <span className="text-[10px] text-slate-500 block uppercase font-sans">
-                      Exp Return
-                    </span>
-                    <span className="font-semibold text-blue-600">
-                      {formatPercent(minVar.return, 2)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 block uppercase font-sans">
-                      Sharpe
-                    </span>
-                    <span className="font-semibold text-slate-800">
-                      {formatRatio(minVar.sharpeRatio, 2)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5 pt-1">
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-semibold font-sans">
-                    Allocations
-                  </div>
-                  {Object.entries(minVar.weights)
-                    .filter(([_, w]) => w > 0.001)
-                    .map(([sym, w]) => (
-                      <div key={sym} className="flex justify-between items-center text-xs">
-                        <span className="font-mono font-medium text-slate-700">{sym}</span>
-                        <span className="font-mono font-semibold text-blue-700">
-                          {formatPercent(w, 1)}
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Risk Parity */}
-            <Card className="shadow-xs border-slate-200 bg-white">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                  <CardTitle className="text-slate-900 text-sm font-semibold">
-                    Equal Risk Parity (ERC)
-                  </CardTitle>
-                </div>
-                <Badge variant="warning">
-                  Vol {formatPercent(riskParity.portfolioVolatility, 1)}
-                </Badge>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                  <div>
-                    <span className="text-[10px] text-slate-500 block uppercase font-sans">
-                      Total Vol
-                    </span>
-                    <span className="font-semibold text-amber-600">
-                      {formatPercent(riskParity.portfolioVolatility, 2)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 block uppercase font-sans">
-                      Risk Budget
-                    </span>
-                    <span className="font-semibold text-slate-800">Equal (1/N)</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5 pt-1">
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-semibold font-sans">
-                    Allocations & Risk Contrib
-                  </div>
-                  {riskParity.assets.map((a) => (
-                    <div key={a.symbol} className="flex justify-between items-center text-xs">
-                      <span className="font-mono font-medium text-slate-700">{a.symbol}</span>
-                      <div className="flex items-center gap-2 font-mono">
-                        <span className="font-semibold text-slate-800">
-                          {formatPercent(a.weight, 1)}
-                        </span>
-                        <span className="text-[10px] text-amber-700">
-                          ({formatPercent(a.percentRiskContribution, 0)} risk)
-                        </span>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: activeLandmark.color }} />
+                      <CardTitle className="text-slate-900 text-base font-bold">
+                        {activeLandmark.name}
+                      </CardTitle>
+                      <Badge variant="neutral" className="font-mono text-[11px]">
+                        {activeLandmark.badge}
+                      </Badge>
                     </div>
-                  ))}
+                    <CardDescription className="text-slate-500 text-xs mt-1">
+                      {activeLandmark.description}
+                    </CardDescription>
+                  </div>
+
+                  {/* Model Selector Tabs */}
+                  <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs">
+                    {landmarkSummaries.map((m) => {
+                      const isSelected = m.id === (activeLandmark?.id || 'max_sharpe');
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => setSelectedLandmarkModel(m.id)}
+                          className={`px-2.5 py-1 rounded-md text-xs font-medium transition cursor-pointer flex items-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: m.color }} />
+                          {m.shortName}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardContent className="space-y-5">
+                {/* 6 Primary KPI Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-[10px] text-slate-500 uppercase font-sans font-semibold block">
+                      Exp. Return
+                    </span>
+                    <span className="text-base font-bold font-mono text-emerald-600 mt-0.5 block">
+                      {formatPercent(activeLandmark.return, 2)}
+                    </span>
+                    <span className="text-[10px] text-slate-400">Annualized</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-[10px] text-slate-500 uppercase font-sans font-semibold block">
+                      Volatility (σ)
+                    </span>
+                    <span className="text-base font-bold font-mono text-slate-800 mt-0.5 block">
+                      {formatPercent(activeLandmark.volatility, 2)}
+                    </span>
+                    <span className="text-[10px] text-slate-400">Annualized</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-[10px] text-slate-500 uppercase font-sans font-semibold block">
+                      Sharpe Ratio
+                    </span>
+                    <span className="text-base font-bold font-mono text-blue-600 mt-0.5 block">
+                      {formatRatio(activeLandmark.sharpe, 2)}
+                    </span>
+                    <span className="text-[10px] text-slate-400">vs {formatPercent(riskFreeRate, 1)} Rf</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-[10px] text-slate-500 uppercase font-sans font-semibold block">
+                      Sortino Ratio
+                    </span>
+                    <span className="text-base font-bold font-mono text-teal-600 mt-0.5 block">
+                      {formatRatio(activeLandmark.sortino, 2)}
+                    </span>
+                    <span className="text-[10px] text-slate-400">Downside τ=0</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-[10px] text-slate-500 uppercase font-sans font-semibold block">
+                      Diversification
+                    </span>
+                    <span className="text-base font-bold font-mono text-sky-600 mt-0.5 block">
+                      {formatRatio(activeLandmark.diversificationRatio, 2)}
+                    </span>
+                    <span className="text-[10px] text-slate-400">Choueifaty DR</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-[10px] text-slate-500 uppercase font-sans font-semibold block">
+                      95% CVaR Loss
+                    </span>
+                    <span className="text-base font-bold font-mono text-rose-600 mt-0.5 block">
+                      {formatPercent(activeLandmark.cvar95, 2)}
+                    </span>
+                    <span className="text-[10px] text-slate-400">Monthly worst 5%</span>
+                  </div>
+                </div>
+
+                {/* Optimal Allocations Breakdown */}
+                <div>
+                  <div className="text-xs font-bold text-slate-900 mb-2.5">
+                    Optimal Asset Weights Breakdown
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                    {validSymbols.map((sym) => {
+                      const w = activeLandmark.weights[sym] || 0;
+                      return (
+                        <div
+                          key={sym}
+                          className="p-2.5 bg-slate-50/70 border border-slate-200 rounded-lg flex flex-col justify-between"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-xs font-semibold text-slate-800">{sym}</span>
+                            <span
+                              className={`font-mono text-xs font-bold ${
+                                w > 0.001 ? 'text-slate-900' : 'text-slate-400'
+                              }`}
+                            >
+                              {formatPercent(w, 1)}
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{
+                                width: `${Math.min(100, Math.max(0, (w / (maxWeight || 1)) * 100))}%`,
+                                backgroundColor: activeLandmark.color,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          </div>
+          )}
+
+          {/* Comprehensive Optimization Objectives Comparative Matrix */}
+          <Card className="shadow-xs border-slate-200 bg-white">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-slate-900 text-sm font-semibold">
+                    Optimization Objectives Comparative Matrix
+                  </CardTitle>
+                  <CardDescription className="text-slate-500 text-xs">
+                    Side-by-side benchmarking of all 7 institutional optimization objective functions (Portfolio Visualizer Disciplines 3.1 &amp; 3.2)
+                  </CardDescription>
+                </div>
+                <Badge variant="info" className="font-mono text-[11px]">
+                  7 Landmark Models
+                </Badge>
+              </div>
+            </CardHeader>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[11px] uppercase font-mono tracking-wider text-slate-500 bg-slate-50/80">
+                    <th className="py-2.5 px-4 font-semibold">Optimization Model</th>
+                    <th className="py-2.5 px-4 font-semibold">Exp Return</th>
+                    <th className="py-2.5 px-4 font-semibold">Volatility</th>
+                    <th className="py-2.5 px-4 font-semibold">Sharpe</th>
+                    <th className="py-2.5 px-4 font-semibold">Sortino</th>
+                    <th className="py-2.5 px-4 font-semibold">Diversification</th>
+                    <th className="py-2.5 px-4 font-semibold">95% CVaR</th>
+                    <th className="py-2.5 px-4 font-semibold">Top Holding</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-mono text-[12px]">
+                  {landmarkSummaries.map((m) => {
+                    const entries = Object.entries(m.weights).filter(([, w]) => w > 0.001);
+                    entries.sort(([, a], [, b]) => b - a);
+                    const topHold = entries[0] ? `${entries[0][0]} (${(entries[0][1] * 100).toFixed(0)}%)` : '—';
+                    const isSelected = m.id === selectedLandmarkModel;
+
+                    return (
+                      <tr
+                        key={m.id}
+                        onClick={() => setSelectedLandmarkModel(m.id)}
+                        className={`cursor-pointer transition-colors ${
+                          isSelected ? 'bg-blue-50/40 font-semibold' : 'hover:bg-slate-50/70'
+                        }`}
+                      >
+                        <td className="py-2.5 px-4 text-slate-900 font-sans flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: m.color }} />
+                          <div>
+                            <div className="font-bold text-slate-900">{m.name}</div>
+                            <div className="text-[10px] text-slate-500 font-normal">{m.badge}</div>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4 text-emerald-600 font-bold">
+                          {formatPercent(m.return, 2)}
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-800">
+                          {formatPercent(m.volatility, 2)}
+                        </td>
+                        <td className="py-2.5 px-4 text-blue-600 font-bold">
+                          {formatRatio(m.sharpe, 2)}
+                        </td>
+                        <td className="py-2.5 px-4 text-teal-600 font-bold">
+                          {formatRatio(m.sortino, 2)}
+                        </td>
+                        <td className="py-2.5 px-4 text-sky-600">
+                          {formatRatio(m.diversificationRatio, 2)}
+                        </td>
+                        <td className="py-2.5 px-4 text-rose-600">
+                          {formatPercent(m.cvar95, 2)}
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-700">
+                          {topHold}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         </div>
       )}
 

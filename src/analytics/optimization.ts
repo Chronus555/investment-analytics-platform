@@ -17,6 +17,9 @@ export interface OptimizedPortfolioResult {
   expectedReturn: number;
   volatility: number;
   sharpeRatio: number;
+  sortinoRatio?: number;
+  diversificationRatio?: number;
+  cvar95?: number;
 }
 
 export interface EfficientFrontierPoint {
@@ -45,6 +48,91 @@ export function calculatePortfolioVolatility(weights: number[], covMatrix: numbe
     }
   }
   return Math.sqrt(Math.max(0, variance * frequency));
+}
+
+/**
+ * Calculates Choueifaty Diversification Ratio:
+ * DR(w) = (sum_i w_i * sigma_i) / sigma_p
+ */
+export function calculateDiversificationRatio(
+  weights: number[],
+  covMatrix: number[][],
+  frequency: number = 12
+): number {
+  const n = weights.length;
+  let weightedVolSum = 0;
+  for (let i = 0; i < n; i++) {
+    const assetVol = Math.sqrt(Math.max(0, covMatrix[i][i] * frequency));
+    weightedVolSum += weights[i] * assetVol;
+  }
+  const portVol = calculatePortfolioVolatility(weights, covMatrix, frequency);
+  if (portVol <= 1e-8) return 1.0;
+  return weightedVolSum / portVol;
+}
+
+/**
+ * Calculates Historical Conditional Value-at-Risk (CVaR / Expected Shortfall)
+ * at the given confidence level (e.g. 0.95 = average loss in the worst 5% months)
+ */
+export function calculatePortfolioCVaR(
+  weights: number[],
+  periodReturns: number[][], // [T x N] returns
+  alpha: number = 0.95
+): number {
+  const T = periodReturns.length;
+  if (T === 0) return 0;
+  const n = weights.length;
+
+  const portReturns: number[] = [];
+  for (let t = 0; t < T; t++) {
+    let r = 0;
+    for (let i = 0; i < n; i++) {
+      r += weights[i] * (periodReturns[t][i] || 0);
+    }
+    portReturns.push(r);
+  }
+
+  // Losses L_t = -R_p,t
+  const losses = portReturns.map((r) => -r).sort((a, b) => a - b);
+  const varIndex = Math.min(losses.length - 1, Math.floor(alpha * losses.length));
+  const tailLosses = losses.slice(varIndex);
+  if (tailLosses.length === 0) return losses[varIndex];
+  const sumTail = tailLosses.reduce((sum, l) => sum + l, 0);
+  return sumTail / tailLosses.length;
+}
+
+/**
+ * Calculates Sortino Ratio: (E[R] - R_f) / DownsideDeviation
+ */
+export function calculatePortfolioSortino(
+  weights: number[],
+  expectedReturn: number,
+  periodReturns: number[][],
+  riskFreeRate: number = 0.04,
+  targetHurdle: number = 0.0,
+  frequency: number = 12
+): number {
+  const T = periodReturns.length;
+  if (T === 0) return 0;
+  const n = weights.length;
+
+  const hurdleMonthly = targetHurdle / frequency;
+  let downsideSumSquares = 0;
+
+  for (let t = 0; t < T; t++) {
+    let r = 0;
+    for (let i = 0; i < n; i++) {
+      r += weights[i] * (periodReturns[t][i] || 0);
+    }
+    const diff = r - hurdleMonthly;
+    if (diff < 0) {
+      downsideSumSquares += Math.pow(diff, 2);
+    }
+  }
+
+  const downsideDeviation = Math.sqrt((downsideSumSquares / T) * frequency);
+  if (downsideDeviation <= 1e-8) return 0;
+  return (expectedReturn - riskFreeRate) / downsideDeviation;
 }
 
 /**
@@ -224,4 +312,284 @@ export function generateEfficientFrontier(
   // Sort by volatility ascending
   frontier.sort((a, b) => a.volatility - b.volatility);
   return frontier;
+}
+
+/**
+ * Solves for the Most Diversified Portfolio (Choueifaty MDP):
+ * Maximizes Diversification Ratio DR(w) subject to simplex box bounds.
+ */
+export function solveMostDiversifiedPortfolio(
+  symbols: string[],
+  covMatrix: number[][],
+  expectedReturns?: number[],
+  constraints: OptimizationConstraint = {}
+): OptimizedPortfolioResult {
+  const n = symbols.length;
+  const assetVols = symbols.map((_, i) => Math.sqrt(Math.max(0, covMatrix[i][i] * 12)));
+  const minW = symbols.map((s) => constraints.assetMinWeights?.[s] ?? constraints.minWeight ?? 0.0);
+  const maxW = symbols.map((s) => constraints.assetMaxWeights?.[s] ?? constraints.maxWeight ?? 1.0);
+
+  let w = Array(n).fill(1 / n);
+  const maxIter = 800;
+  let lr = 0.02;
+  const eps = 1e-5;
+
+  const evalObj = (weights: number[]) => {
+    const portVol = calculatePortfolioVolatility(weights, covMatrix, 12);
+    if (portVol <= 1e-8) return -1;
+    const weightedVol = weights.reduce((sum, wi, i) => sum + wi * assetVols[i], 0);
+    return -(weightedVol / portVol); // minimize negative DR
+  };
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    const grad: number[] = Array(n).fill(0);
+    const baseVal = evalObj(w);
+
+    for (let i = 0; i < n; i++) {
+      const wP = [...w];
+      wP[i] += eps;
+      const sum = wP.reduce((a, b) => a + b, 0);
+      const norm = wP.map((v) => v / sum);
+      grad[i] = (evalObj(norm) - baseVal) / eps;
+    }
+
+    const stepW = w.map((v, i) => v - lr * grad[i]);
+    const nextW = projectSimplexWithBounds(stepW, minW, maxW);
+    const nextVal = evalObj(nextW);
+
+    if (nextVal < baseVal) {
+      w = nextW;
+      lr *= 1.02;
+    } else {
+      lr *= 0.5;
+    }
+    if (lr < 1e-8) break;
+  }
+
+  const normalizedWeights = projectSimplexWithBounds(w, minW, maxW);
+  const weightMap: Record<string, number> = {};
+  symbols.forEach((s, i) => {
+    weightMap[s] = Math.round(normalizedWeights[i] * 10000) / 10000;
+  });
+
+  const rets = expectedReturns || symbols.map(() => 0.08);
+  const expRet = calculatePortfolioReturn(normalizedWeights, rets);
+  const vol = calculatePortfolioVolatility(normalizedWeights, covMatrix, 12);
+  const dr = calculateDiversificationRatio(normalizedWeights, covMatrix, 12);
+
+  return {
+    weights: weightMap,
+    expectedReturn: expRet,
+    volatility: vol,
+    sharpeRatio: vol > 0 ? (expRet - 0.04) / vol : 0,
+    diversificationRatio: dr,
+  };
+}
+
+/**
+ * Solves for Minimum Conditional Value-at-Risk (95% CVaR / Expected Shortfall):
+ * Minimizes average tail losses in the worst 5% historical months.
+ */
+export function solveMinCVaR(
+  symbols: string[],
+  periodReturns: number[][],
+  expectedReturns?: number[],
+  covMatrix?: number[][],
+  alpha: number = 0.95,
+  constraints: OptimizationConstraint = {}
+): OptimizedPortfolioResult {
+  const n = symbols.length;
+  const minW = symbols.map((s) => constraints.assetMinWeights?.[s] ?? constraints.minWeight ?? 0.0);
+  const maxW = symbols.map((s) => constraints.assetMaxWeights?.[s] ?? constraints.maxWeight ?? 1.0);
+
+  let w = Array(n).fill(1 / n);
+  const maxIter = 600;
+  let lr = 0.02;
+  const eps = 1e-4;
+
+  const evalObj = (weights: number[]) => {
+    return calculatePortfolioCVaR(weights, periodReturns, alpha);
+  };
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    const grad: number[] = Array(n).fill(0);
+    const baseVal = evalObj(w);
+
+    for (let i = 0; i < n; i++) {
+      const wP = [...w];
+      wP[i] += eps;
+      const sum = wP.reduce((a, b) => a + b, 0);
+      const norm = wP.map((v) => v / sum);
+      grad[i] = (evalObj(norm) - baseVal) / eps;
+    }
+
+    const currentLr = lr / (1 + 0.005 * iter);
+    const stepW = w.map((v, i) => v - currentLr * grad[i]);
+    w = projectSimplexWithBounds(stepW, minW, maxW);
+  }
+
+  const normalizedWeights = projectSimplexWithBounds(w, minW, maxW);
+  const weightMap: Record<string, number> = {};
+  symbols.forEach((s, i) => {
+    weightMap[s] = Math.round(normalizedWeights[i] * 10000) / 10000;
+  });
+
+  const rets = expectedReturns || symbols.map((_, i) => {
+    const assetRets = periodReturns.map((row) => row[i] || 0);
+    return calculateMean(assetRets) * 12;
+  });
+  const expRet = calculatePortfolioReturn(normalizedWeights, rets);
+  const cov = covMatrix || calculateCovarianceMatrix(symbols.map((_, i) => periodReturns.map((row) => row[i] || 0)));
+  const vol = calculatePortfolioVolatility(normalizedWeights, cov, 12);
+  const cvar = calculatePortfolioCVaR(normalizedWeights, periodReturns, alpha);
+
+  return {
+    weights: weightMap,
+    expectedReturn: expRet,
+    volatility: vol,
+    sharpeRatio: vol > 0 ? (expRet - 0.04) / vol : 0,
+    cvar95: cvar,
+  };
+}
+
+/**
+ * Solves for Maximum Sortino Ratio:
+ * Maximizes excess return per unit of downside semi-deviation.
+ */
+export function solveMaxSortino(
+  symbols: string[],
+  expectedReturns: number[],
+  periodReturns: number[][],
+  covMatrix: number[][],
+  riskFreeRate: number = 0.04,
+  constraints: OptimizationConstraint = {}
+): OptimizedPortfolioResult {
+  const n = symbols.length;
+  const minW = symbols.map((s) => constraints.assetMinWeights?.[s] ?? constraints.minWeight ?? 0.0);
+  const maxW = symbols.map((s) => constraints.assetMaxWeights?.[s] ?? constraints.maxWeight ?? 1.0);
+
+  let w = Array(n).fill(1 / n);
+  const maxIter = 700;
+  let lr = 0.015;
+  const eps = 1e-5;
+
+  const evalObj = (weights: number[]) => {
+    const ret = calculatePortfolioReturn(weights, expectedReturns);
+    const sortino = calculatePortfolioSortino(weights, ret, periodReturns, riskFreeRate, 0.0, 12);
+    return -sortino; // minimize negative Sortino
+  };
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    const grad: number[] = Array(n).fill(0);
+    const baseVal = evalObj(w);
+
+    for (let i = 0; i < n; i++) {
+      const wP = [...w];
+      wP[i] += eps;
+      const sum = wP.reduce((a, b) => a + b, 0);
+      const norm = wP.map((v) => v / sum);
+      grad[i] = (evalObj(norm) - baseVal) / eps;
+    }
+
+    const stepW = w.map((v, i) => v - lr * grad[i]);
+    const nextW = projectSimplexWithBounds(stepW, minW, maxW);
+    const nextVal = evalObj(nextW);
+
+    if (nextVal < baseVal) {
+      w = nextW;
+      lr *= 1.02;
+    } else {
+      lr *= 0.5;
+    }
+    if (lr < 1e-8) break;
+  }
+
+  const normalizedWeights = projectSimplexWithBounds(w, minW, maxW);
+  const weightMap: Record<string, number> = {};
+  symbols.forEach((s, i) => {
+    weightMap[s] = Math.round(normalizedWeights[i] * 10000) / 10000;
+  });
+
+  const expRet = calculatePortfolioReturn(normalizedWeights, expectedReturns);
+  const vol = calculatePortfolioVolatility(normalizedWeights, covMatrix, 12);
+  const sortino = calculatePortfolioSortino(normalizedWeights, expRet, periodReturns, riskFreeRate, 0.0, 12);
+
+  return {
+    weights: weightMap,
+    expectedReturn: expRet,
+    volatility: vol,
+    sharpeRatio: vol > 0 ? (expRet - riskFreeRate) / vol : 0,
+    sortinoRatio: sortino,
+  };
+}
+
+/**
+ * Solves for Kelly Criterion Portfolio (Geometric Growth Optimal):
+ * Maximizes expected log utility growth rate G(w) = w^T * mu - (1 / (2*f)) * w^T * Sigma * w * 12
+ * with fractional Kelly scaling (default fraction = 0.5 for Half Kelly).
+ */
+export function solveKellyCriterion(
+  symbols: string[],
+  expectedReturns: number[],
+  covMatrix: number[][],
+  fraction: number = 0.5,
+  constraints: OptimizationConstraint = {}
+): OptimizedPortfolioResult {
+  const n = symbols.length;
+  const minW = symbols.map((s) => constraints.assetMinWeights?.[s] ?? constraints.minWeight ?? 0.0);
+  const maxW = symbols.map((s) => constraints.assetMaxWeights?.[s] ?? constraints.maxWeight ?? 1.0);
+
+  let w = Array(n).fill(1 / n);
+  const maxIter = 800;
+  let lr = 0.02;
+  const eps = 1e-5;
+
+  const evalObj = (weights: number[]) => {
+    const ret = calculatePortfolioReturn(weights, expectedReturns);
+    const vol = calculatePortfolioVolatility(weights, covMatrix, 12);
+    const varAnn = Math.pow(vol, 2);
+    const growth = ret - (0.5 / fraction) * varAnn;
+    return -growth; // minimize negative growth
+  };
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    const grad: number[] = Array(n).fill(0);
+    const baseVal = evalObj(w);
+
+    for (let i = 0; i < n; i++) {
+      const wP = [...w];
+      wP[i] += eps;
+      const sum = wP.reduce((a, b) => a + b, 0);
+      const norm = wP.map((v) => v / sum);
+      grad[i] = (evalObj(norm) - baseVal) / eps;
+    }
+
+    const stepW = w.map((v, i) => v - lr * grad[i]);
+    const nextW = projectSimplexWithBounds(stepW, minW, maxW);
+    const nextVal = evalObj(nextW);
+
+    if (nextVal < baseVal) {
+      w = nextW;
+      lr *= 1.02;
+    } else {
+      lr *= 0.5;
+    }
+    if (lr < 1e-8) break;
+  }
+
+  const normalizedWeights = projectSimplexWithBounds(w, minW, maxW);
+  const weightMap: Record<string, number> = {};
+  symbols.forEach((s, i) => {
+    weightMap[s] = Math.round(normalizedWeights[i] * 10000) / 10000;
+  });
+
+  const expRet = calculatePortfolioReturn(normalizedWeights, expectedReturns);
+  const vol = calculatePortfolioVolatility(normalizedWeights, covMatrix, 12);
+
+  return {
+    weights: weightMap,
+    expectedReturn: expRet,
+    volatility: vol,
+    sharpeRatio: vol > 0 ? (expRet - 0.04) / vol : 0,
+  };
 }
