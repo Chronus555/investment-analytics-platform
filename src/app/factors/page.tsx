@@ -3,18 +3,49 @@
 import React, { useState, useMemo } from 'react';
 import { runMultipleRegression, FactorRegressionResult } from '@/analytics/factors';
 import { runPCA, PCAResult } from '@/analytics/pca';
-import { CURATED_RETURNS, CURATED_SECURITIES } from '@/data/curatedData';
+import {
+  extractUniverseFactorLoadings,
+  solveTargetFactorAllocation,
+  simulateFactorMatchedPortfolio,
+  TargetFactorExposures,
+} from '@/analytics/factorAllocation';
+import { CURATED_DATES, CURATED_RETURNS, CURATED_SECURITIES } from '@/data/curatedData';
 import { PcaScreeChart } from '@/components/charts/PcaScreeChart';
+import { FactorMatchBarChart } from '@/components/charts/FactorMatchBarChart';
+import { GrowthChart } from '@/components/charts/GrowthChart';
 import { PageHeader, Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, MetricCard } from '@/components/ui';
-import { TrendingUp, Layers, Compass } from 'lucide-react';
+import { TrendingUp, Layers, Sliders, CheckCircle2 } from 'lucide-react';
 import { formatPercent, formatRatio } from '@/utils/formatters';
 
+type FactorTab = 'regression' | 'matching' | 'pca';
+
 export default function FactorsPage() {
-  const [activeTab, setActiveTab] = useState<'regression' | 'pca'>('regression');
+  const [activeTab, setActiveTab] = useState<FactorTab>('regression');
 
   // --- Factor Regression State ---
   const [targetSymbol, setTargetSymbol] = useState('AVUV');
   const [modelType, setModelType] = useState<'capm' | 'ff3' | 'carhart4'>('ff3');
+
+  // --- Factor Matching (Discipline 5.2) State ---
+  const [targetMkt, setTargetMkt] = useState(1.0);
+  const [targetSmb, setTargetSmb] = useState(0.25);
+  const [targetHml, setTargetHml] = useState(0.25);
+  const [targetMom, setTargetMom] = useState(0.10);
+  const [maxAssetWeight, setMaxAssetWeight] = useState(0.40);
+
+  const factorUniverse = [
+    'SPY',
+    'QQQ',
+    'IWM',
+    'AVUV',
+    'EFA',
+    'EEM',
+    'VNQ',
+    'GLD',
+    'TLT',
+    'BND',
+    'BIL',
+  ];
 
   // --- PCA State ---
   const [pcaSymbols, setPcaSymbols] = useState<string[]>([
@@ -58,8 +89,8 @@ export default function FactorsPage() {
       fNames = ['MKT-RF', 'SMB (Size)', 'HML (Value)'];
       for (let i = 0; i < targetRets.length; i++) {
         const mktRf = mkt[i] - (rf[i] || 0);
-        const smb = iwm[i] - mkt[i]; // Small minus Big
-        const hml = 0.5 * (targetRets[i] - qqq[i]); // High minus Low proxy
+        const smb = iwm[i] - mkt[i];
+        const hml = 0.5 * (targetRets[i] - qqq[i]);
         x.push([mktRf, smb, hml]);
       }
     } else {
@@ -81,51 +112,130 @@ export default function FactorsPage() {
     return runMultipleRegression(yExcess, xMatrix, factorNames);
   }, [yExcess, xMatrix, factorNames]);
 
+  // Run Factor Matching Solver (Discipline 5.2)
+  const factorMatching = useMemo(() => {
+    const { factorMatrix } = extractUniverseFactorLoadings(CURATED_RETURNS, factorUniverse);
+    const targetBetas: TargetFactorExposures = {
+      mkt: targetMkt,
+      smb: targetSmb,
+      hml: targetHml,
+      mom: targetMom,
+    };
+    const solved = solveTargetFactorAllocation(
+      factorUniverse,
+      factorMatrix,
+      targetBetas,
+      undefined,
+      maxAssetWeight
+    );
+    const sim = simulateFactorMatchedPortfolio(CURATED_DATES, CURATED_RETURNS, solved.weights, 'SPY');
+    return { ...solved, sim };
+  }, [factorUniverse, targetMkt, targetSmb, targetHml, targetMom, maxAssetWeight]);
+
   // Run PCA
   const pca = useMemo<PCAResult>(() => {
     return runPCA(CURATED_RETURNS, pcaSymbols);
   }, [pcaSymbols]);
 
+  const applyMatchingPreset = (preset: 'balanced' | 'scv' | 'lowvol' | 'momentum' | 'market_neutral') => {
+    if (preset === 'balanced') {
+      setTargetMkt(1.0);
+      setTargetSmb(0.20);
+      setTargetHml(0.20);
+      setTargetMom(0.10);
+    } else if (preset === 'scv') {
+      setTargetMkt(1.0);
+      setTargetSmb(0.50);
+      setTargetHml(0.40);
+      setTargetMom(0.00);
+    } else if (preset === 'lowvol') {
+      setTargetMkt(0.70);
+      setTargetSmb(-0.10);
+      setTargetHml(0.30);
+      setTargetMom(0.00);
+    } else if (preset === 'momentum') {
+      setTargetMkt(1.15);
+      setTargetSmb(0.10);
+      setTargetHml(-0.20);
+      setTargetMom(0.40);
+    } else if (preset === 'market_neutral') {
+      setTargetMkt(0.0);
+      setTargetSmb(0.30);
+      setTargetHml(0.30);
+      setTargetMom(0.20);
+    }
+  };
+
+  const matchingGrowthSeries = [
+    {
+      id: 'matched',
+      name: 'Factor-Matched Portfolio',
+      color: '#2563eb',
+      data: factorMatching.sim.growthSeries,
+    },
+    {
+      id: 'spy',
+      name: 'SPY Benchmark',
+      color: '#64748b',
+      data: factorMatching.sim.benchmarkSeries,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Factor Analysis & Systematic Risk Attribution"
-        description="Multi-factor Ordinary Least Squares (OLS) regressions, systematic risk factor loadings, t-statistics, and Principal Component Analysis (PCA)."
+        description="Multi-factor OLS regressions, Target Factor Allocation reverse-solver, and Principal Component Analysis (PCA)."
       />
 
       {/* Segmented Top Tab Controls */}
-      <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-        <div className="flex items-center gap-2 p-1 bg-slate-100/80 rounded-lg border border-slate-200/80">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+        <div className="flex flex-wrap items-center gap-2 p-1 bg-slate-100/80 rounded-lg border border-slate-200/80">
           <button
             type="button"
             onClick={() => setActiveTab('regression')}
-            className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
               activeTab === 'regression'
                 ? 'bg-white text-slate-900 shadow-xs font-semibold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Factor Regressions (CAPM &amp; Multi-Factor)
+            Factor Regressions (5.1)
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('matching')}
+            className={`px-3.5 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
+              activeTab === 'matching'
+                ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Risk Factor Allocation (5.2)
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('pca')}
-            className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
               activeTab === 'pca'
                 ? 'bg-white text-slate-900 shadow-xs font-semibold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Principal Component Analysis (PCA)
+            Principal Component Analysis (5.3)
           </button>
         </div>
 
         <span className="text-xs font-mono text-slate-400 hidden sm:inline">
-          {activeTab === 'regression' ? 'OLS GAUSS-MARKOV SOLVER' : 'JACOBI EIGENVALUE DECOMPOSITION'}
+          {activeTab === 'regression'
+            ? 'OLS GAUSS-MARKOV SOLVER'
+            : activeTab === 'matching'
+            ? 'SIMPLEX CONSTRAINED REVERSE QP'
+            : 'JACOBI EIGENVALUE DECOMPOSITION'}
         </span>
       </div>
 
-      {activeTab === 'regression' ? (
+      {activeTab === 'regression' && (
         <div className="space-y-6">
           {/* Regression Configuration */}
           <Card className="shadow-xs border-slate-200 bg-white">
@@ -203,145 +313,357 @@ export default function FactorsPage() {
             <MetricCard
               label="Residual Volatility"
               value={formatPercent(regression.residualVolatility, 2)}
-              helperText="Idiosyncratic active risk"
+              helperText="Idiosyncratic unsystematic risk"
             />
           </div>
 
-          {/* Factor Coefficients Table */}
+          {/* Factor Loadings Table */}
           <Card className="shadow-xs border-slate-200 bg-white">
             <CardHeader>
-              <CardTitle className="text-slate-900">Factor Coefficients &amp; Significance Table</CardTitle>
+              <CardTitle className="text-slate-900">Systematic Factor Loadings &amp; Significance</CardTitle>
               <CardDescription className="text-slate-500">
-                Ordinary Least Squares loadings (Beta), t-statistics, p-values, and 95% statistical significance
+                Ordinary least squares coefficients, standard errors, and hypothesis test statistics
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto pb-2">
-                <table className="w-full text-xs text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-500 bg-slate-50/80 font-semibold text-[11px] uppercase font-mono tracking-wider">
-                      <th className="py-2.5 px-3">Factor Component</th>
-                      <th className="py-2.5 px-3 text-right">Coefficient (Beta)</th>
-                      <th className="py-2.5 px-3 text-right">t-Statistic</th>
-                      <th className="py-2.5 px-3 text-right">p-Value</th>
-                      <th className="py-2.5 px-3 text-center">Significance</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-mono text-[12px]">
-                    <tr className="hover:bg-slate-50/70">
-                      <td className="py-2.5 px-3 font-sans font-semibold text-slate-900">
-                        Alpha (Intercept α)
-                      </td>
-                      <td
-                        className={`py-2.5 px-3 text-right font-bold tabular-nums ${
-                          regression.alpha >= 0 ? 'text-emerald-600' : 'text-red-600'
-                        }`}
-                      >
-                        {formatPercent(regression.alpha, 3, true)}
-                      </td>
-                      <td className="py-2.5 px-3 text-right text-slate-700 tabular-nums">
-                        {regression.alphaTStat.toFixed(2)}
-                      </td>
-                      <td className="py-2.5 px-3 text-right text-slate-700 tabular-nums">
-                        {regression.alphaPValue.toFixed(4)}
-                      </td>
-                      <td className="py-2.5 px-3 text-center font-sans">
-                        {regression.alphaPValue < 0.05 ? (
-                          <Badge variant="success">
-                            {regression.alphaPValue < 0.01 ? 'p < 0.01 ***' : 'p < 0.05 **'}
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[11px] uppercase font-mono tracking-wider text-slate-500 bg-slate-50/80">
+                    <th className="py-2.5 px-4 font-semibold">Factor</th>
+                    <th className="py-2.5 px-4 font-semibold">Beta Loading (β)</th>
+                    <th className="py-2.5 px-4 font-semibold">t-Statistic</th>
+                    <th className="py-2.5 px-4 font-semibold">p-Value</th>
+                    <th className="py-2.5 px-4 font-semibold">Significance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-mono text-[12px]">
+                  {factorNames.map((fn) => {
+                    const beta = regression.betas[fn] || 0;
+                    const tVal = regression.tStats[fn] || 0;
+                    const pVal = regression.pValues[fn] || 0;
+                    const isSig = pVal < 0.05;
+
+                    return (
+                      <tr key={fn} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-2 px-4 text-slate-900 font-semibold font-sans">{fn}</td>
+                        <td className="py-2 px-4 text-slate-800 font-bold">{formatRatio(beta, 3)}</td>
+                        <td className="py-2 px-4 text-slate-700">{formatRatio(tVal, 2)}</td>
+                        <td className="py-2 px-4 text-slate-600">{pVal.toFixed(4)}</td>
+                        <td className="py-2 px-4">
+                          <Badge variant={isSig ? 'success' : 'neutral'} size="sm">
+                            {isSig ? 'p < 0.05 (Sig)' : 'Not Significant'}
                           </Badge>
-                        ) : (
-                          <Badge variant="neutral">Not Sig</Badge>
-                        )}
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
 
-                    {factorNames.map((name) => {
-                      const beta = regression.betas[name] || 0;
-                      const tStat = regression.tStats[name] || 0;
-                      const pVal = regression.pValues[name] || 1;
-
-                      return (
-                        <tr key={name} className="hover:bg-slate-50/70">
-                          <td className="py-2.5 px-3 font-sans font-medium text-slate-800">
-                            <span className="text-blue-600 mr-2">■</span>
-                            {name}
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-bold text-slate-900 tabular-nums">
-                            {beta >= 0 ? `+${beta.toFixed(3)}` : beta.toFixed(3)}
-                          </td>
-                          <td className="py-2.5 px-3 text-right text-slate-700 tabular-nums">
-                            {tStat.toFixed(2)}
-                          </td>
-                          <td className="py-2.5 px-3 text-right text-slate-700 tabular-nums">
-                            {pVal.toFixed(4)}
-                          </td>
-                          <td className="py-2.5 px-3 text-center font-sans">
-                            {pVal < 0.05 ? (
-                              <Badge variant="info">
-                                {pVal < 0.01 ? 'p < 0.01 ***' : 'p < 0.05 **'}
-                              </Badge>
-                            ) : (
-                              <Badge variant="neutral">Not Sig</Badge>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+      {activeTab === 'matching' && (
+        <div className="space-y-6">
+          {/* Factor Matching Controls */}
+          <Card className="shadow-xs border-slate-200 bg-white">
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-blue-600" />
+                  <CardTitle className="text-slate-900">Target Factor Exposure Specification</CardTitle>
+                </div>
+                <Badge variant="info" className="w-fit font-mono text-[11px]">
+                  Portfolio Visualizer Discipline 5.2
+                </Badge>
+              </div>
+              <CardDescription className="text-slate-500">
+                Specify your desired portfolio factor betas; the quadratic programming solver determines the optimal long-only asset weights
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {/* Presets */}
+              <div>
+                <span className="text-[11px] font-mono uppercase tracking-wider text-slate-500 font-semibold block mb-2">
+                  Factor Allocation Presets
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => applyMatchingPreset('balanced')}
+                    className="px-3 py-1 text-xs rounded-md border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium cursor-pointer"
+                  >
+                    Balanced Tilt (MKT 1.0, SMB 0.2, HML 0.2)
+                  </button>
+                  <button
+                    onClick={() => applyMatchingPreset('scv')}
+                    className="px-3 py-1 text-xs rounded-md border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium cursor-pointer"
+                  >
+                    Small-Cap Value (SMB 0.5, HML 0.4)
+                  </button>
+                  <button
+                    onClick={() => applyMatchingPreset('lowvol')}
+                    className="px-3 py-1 text-xs rounded-md border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium cursor-pointer"
+                  >
+                    Low Vol Value (MKT 0.7, HML 0.3)
+                  </button>
+                  <button
+                    onClick={() => applyMatchingPreset('momentum')}
+                    className="px-3 py-1 text-xs rounded-md border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium cursor-pointer"
+                  >
+                    High Momentum (MOM 0.4)
+                  </button>
+                  <button
+                    onClick={() => applyMatchingPreset('market_neutral')}
+                    className="px-3 py-1 text-xs rounded-md border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium cursor-pointer"
+                  >
+                    Market Neutral (MKT 0.0)
+                  </button>
+                </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-500 space-y-1">
-                <p className="font-semibold text-slate-800">Factor Interpretation:</p>
-                <p>
-                  • <strong className="text-slate-700">MKT-RF:</strong> Measures systematic broad equity market sensitivity. A beta &gt; 1.0 indicates higher volatility than the benchmark.
-                </p>
-                <p>
-                  • <strong className="text-slate-700">SMB (Small Minus Big):</strong> Positive exposure indicates tilting toward small-cap equities.
-                </p>
-                <p>
-                  • <strong className="text-slate-700">HML (High Minus Low):</strong> Positive exposure indicates value orientation; negative indicates growth orientation.
-                </p>
+              {/* Sliders Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pt-2 text-xs">
+                <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/50">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="font-semibold text-slate-800">Market Beta (MKT)</span>
+                    <span className="font-mono font-bold text-blue-600">{targetMkt.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.0"
+                    max="1.5"
+                    step="0.05"
+                    value={targetMkt}
+                    onChange={(e) => setTargetMkt(parseFloat(e.target.value))}
+                    className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400 mt-1 font-mono">
+                    <span>0.0 (Neutral)</span>
+                    <span>1.5 (Aggressive)</span>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/50">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="font-semibold text-slate-800">Size Beta (SMB)</span>
+                    <span className="font-mono font-bold text-blue-600">
+                      {targetSmb > 0 ? '+' : ''}{targetSmb.toFixed(2)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-0.5"
+                    max="0.8"
+                    step="0.05"
+                    value={targetSmb}
+                    onChange={(e) => setTargetSmb(parseFloat(e.target.value))}
+                    className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400 mt-1 font-mono">
+                    <span>-0.5 (Large)</span>
+                    <span>+0.8 (Small)</span>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/50">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="font-semibold text-slate-800">Value Beta (HML)</span>
+                    <span className="font-mono font-bold text-blue-600">
+                      {targetHml > 0 ? '+' : ''}{targetHml.toFixed(2)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-0.5"
+                    max="0.8"
+                    step="0.05"
+                    value={targetHml}
+                    onChange={(e) => setTargetHml(parseFloat(e.target.value))}
+                    className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400 mt-1 font-mono">
+                    <span>-0.5 (Growth)</span>
+                    <span>+0.8 (Value)</span>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/50">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="font-semibold text-slate-800">Momentum Beta (MOM)</span>
+                    <span className="font-mono font-bold text-blue-600">
+                      {targetMom > 0 ? '+' : ''}{targetMom.toFixed(2)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-0.5"
+                    max="0.8"
+                    step="0.05"
+                    value={targetMom}
+                    onChange={(e) => setTargetMom(parseFloat(e.target.value))}
+                    className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400 mt-1 font-mono">
+                    <span>-0.5 (Reversal)</span>
+                    <span>+0.8 (Trend)</span>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/50">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="font-semibold text-slate-800">Max Asset Weight</span>
+                    <span className="font-mono font-bold text-slate-800">{Math.round(maxAssetWeight * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.20"
+                    max="1.00"
+                    step="0.05"
+                    value={maxAssetWeight}
+                    onChange={(e) => setMaxAssetWeight(parseFloat(e.target.value))}
+                    className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-700"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400 mt-1 font-mono">
+                    <span>20% (Diversified)</span>
+                    <span>100% (Unconstrained)</span>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* PCA Universe Selection */}
+
+          {/* KPI Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <MetricCard
+              label="Mean Factor Error (MAE)"
+              value={factorMatching.meanAbsoluteError.toFixed(3)}
+              change={factorMatching.meanAbsoluteError < 0.10 ? 'Tight Fit' : 'Moderate Fit'}
+              changeType={factorMatching.meanAbsoluteError < 0.10 ? 'positive' : 'neutral'}
+              helperText="Average |Achieved - Target|"
+            />
+
+            <MetricCard
+              label="Factor Match Quality"
+              value={formatPercent(factorMatching.rSquared, 1)}
+              helperText="Objective goodness-of-fit"
+            />
+
+            <MetricCard
+              label="Backtested CAGR"
+              value={formatPercent(factorMatching.sim.cagr, 2)}
+              helperText={`vs SPY ${formatPercent(factorMatching.sim.benchCagr, 2)}`}
+              changeType={factorMatching.sim.cagr >= factorMatching.sim.benchCagr ? 'positive' : 'negative'}
+            />
+
+            <MetricCard
+              label="Sharpe Ratio"
+              value={formatRatio(factorMatching.sim.sharpe, 2)}
+              helperText={`vs SPY ${formatRatio(factorMatching.sim.benchSharpe, 2)}`}
+              changeType={factorMatching.sim.sharpe >= factorMatching.sim.benchSharpe ? 'positive' : 'negative'}
+            />
+          </div>
+
+          {/* Factor Comparison Bar Chart */}
+          <Card className="shadow-xs border-slate-200 bg-white">
+            <CardHeader>
+              <CardTitle className="text-slate-900">Factor Exposure Alignment</CardTitle>
+              <CardDescription className="text-slate-500">
+                Comparing user-specified target betas against the achieved loadings of the reverse-solved portfolio
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FactorMatchBarChart
+                targetBetas={factorMatching.targetBetas}
+                achievedBetas={factorMatching.achievedBetas}
+                height={220}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Solved Asset Weights Breakdown */}
           <Card className="shadow-xs border-slate-200 bg-white">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-blue-600" />
-                  <CardTitle className="text-slate-900">
-                    PCA Asset Universe ({pcaSymbols.length} Assets Selected)
-                  </CardTitle>
+                <div>
+                  <CardTitle className="text-slate-900">Optimal Factor-Matched Asset Allocation</CardTitle>
+                  <CardDescription className="text-slate-500">
+                    Solved portfolio weights minimizing factor tracking error subject to long-only simplex bounds
+                  </CardDescription>
                 </div>
-                <span className="text-xs font-mono text-slate-400">Min: 2 assets</span>
+                <Badge variant="success" className="font-mono text-xs">
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                  Sum = 100.0%
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                {Object.entries(factorMatching.weights)
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([sym, w]) => {
+                    const isAllocated = w > 0.005;
+                    return (
+                      <div
+                        key={sym}
+                        className={`p-3 rounded-lg border transition-colors ${
+                          isAllocated
+                            ? 'border-blue-200 bg-blue-50/40 text-slate-900'
+                            : 'border-slate-100 bg-slate-50/40 text-slate-400'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-sm">{sym}</span>
+                          <span className="font-mono text-xs font-semibold">
+                            {(w * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
+                          <div
+                            className="bg-blue-600 h-full rounded-full"
+                            style={{ width: `${Math.min(100, w * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Historical Compounded Growth Chart */}
+          <GrowthChart series={matchingGrowthSeries} height={320} />
+        </div>
+      )}
+
+      {activeTab === 'pca' && (
+        <div className="space-y-6">
+          {/* Asset Selection for PCA */}
+          <Card className="shadow-xs border-slate-200 bg-white">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-blue-600" />
+                <CardTitle className="text-slate-900">PCA Asset Universe Selection</CardTitle>
               </div>
               <CardDescription className="text-slate-500">
-                Select multi-asset securities to perform orthogonal principal component decomposition
+                Choose assets to compute orthogonal principal components and decompose systematic macro risk drivers
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {CURATED_SECURITIES.map((sec) => {
-                  const isSelected = pcaSymbols.includes(sec.symbol);
+                {CURATED_SECURITIES.map((s) => {
+                  const isSelected = pcaSymbols.includes(s.symbol);
                   return (
                     <button
-                      key={sec.symbol}
-                      type="button"
-                      onClick={() => togglePcaSymbol(sec.symbol)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all cursor-pointer ${
+                      key={s.symbol}
+                      onClick={() => togglePcaSymbol(s.symbol)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
                         isSelected
-                          ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-xs font-semibold'
-                          : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
-                      {sec.symbol}
-                      <span className="ml-1.5 text-[10px] text-slate-400 font-sans">{sec.assetClass}</span>
+                      {s.symbol}
                     </button>
                   );
                 })}
@@ -349,45 +671,12 @@ export default function FactorsPage() {
             </CardContent>
           </Card>
 
-          {/* PCA Summary Metric Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <MetricCard
-              label="Analyzed Components"
-              value={pca.components.length.toString()}
-              helperText={`${pcaSymbols.length} Orthogonal Eigenvectors`}
-            />
-            <MetricCard
-              label="PC1 Variance Explained"
-              value={formatPercent(pca.components[0]?.varianceExplained || 0, 1)}
-              change="Dominant Factor"
-              changeType="positive"
-              helperText="Primary systemic market driver"
-            />
-            <MetricCard
-              label="PC1 + PC2 Cumulative"
-              value={formatPercent(pca.components[1]?.cumulativeVariance || 0, 1)}
-              change="Top 2 Components"
-              changeType="positive"
-              helperText="Explains bulk of systemic co-movement"
-            />
-            <MetricCard
-              label="PC1 Primary Driver"
-              value={pca.topDrivers[0]?.dominantAsset || 'N/A'}
-              change={`Loading ${pca.topDrivers[0]?.loading.toFixed(2) || '0'}`}
-              changeType="neutral"
-              helperText="Largest positive loading on PC1"
-            />
-          </div>
-
-          {/* Scree Plot Chart */}
+          {/* PCA Scree Chart */}
           <Card className="shadow-xs border-slate-200 bg-white">
             <CardHeader>
-              <div className="flex items-center gap-2">
-                <Compass className="w-4 h-4 text-blue-600" />
-                <CardTitle className="text-slate-900">Eigenvalue Scree Plot &amp; Variance Decomposition</CardTitle>
-              </div>
+              <CardTitle className="text-slate-900">Scree Plot: Variance Explained by Component</CardTitle>
               <CardDescription className="text-slate-500">
-                Percentage of total portfolio return variance captured by each principal component (bars) and cumulative variance (line)
+                Individual variance bars (left axis) and cumulative variance line reaching 100% (right axis)
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -395,74 +684,50 @@ export default function FactorsPage() {
             </CardContent>
           </Card>
 
-          {/* Factor Loadings Matrix Table */}
+          {/* Component Loadings Heatmap */}
           <Card className="shadow-xs border-slate-200 bg-white">
             <CardHeader>
-              <CardTitle className="text-slate-900">Asset Factor Loadings Matrix</CardTitle>
+              <CardTitle className="text-slate-900">Principal Component Asset Loadings</CardTitle>
               <CardDescription className="text-slate-500">
-                Statistical correlation between each security and the underlying orthogonal principal components
+                Factor loadings of each asset onto the top principal components
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-500 bg-slate-50/80 font-semibold text-[11px] uppercase font-mono tracking-wider">
-                      <th className="py-2.5 px-3">Asset</th>
-                      {pca.components.slice(0, 5).map((comp) => (
-                        <th key={comp.component} className="py-2.5 px-3 text-right">
-                          {comp.component} ({formatPercent(comp.varianceExplained, 0)})
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-mono text-[12px]">
-                    {pcaSymbols.map((sym) => {
-                      return (
-                        <tr key={sym} className="hover:bg-slate-50/70">
-                          <td className="py-2.5 px-3 font-sans font-semibold text-slate-900">
-                            {sym}
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[11px] uppercase font-mono tracking-wider text-slate-500 bg-slate-50/80">
+                    <th className="py-2.5 px-4 font-semibold">Asset</th>
+                    {pca.components.slice(0, 4).map((c) => (
+                      <th key={c.component} className="py-2.5 px-4 font-semibold">
+                        {c.component} ({formatPercent(c.varianceExplained, 1)})
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-mono text-[12px]">
+                  {pca.symbols.map((sym) => (
+                    <tr key={sym} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2 px-4 text-slate-900 font-semibold font-sans">{sym}</td>
+                      {pca.components.slice(0, 4).map((c) => {
+                        const loading = c.loadings[sym] ?? 0;
+                        const isPos = loading >= 0;
+                        return (
+                          <td key={c.component} className="py-2 px-4">
+                            <span
+                              className={`font-mono font-semibold ${
+                                isPos ? 'text-emerald-600' : 'text-rose-600'
+                              }`}
+                            >
+                              {isPos ? '+' : ''}{loading.toFixed(3)}
+                            </span>
                           </td>
-                          {pca.components.slice(0, 5).map((comp) => {
-                            const loading = comp.loadings[sym] ?? 0;
-                            const isHighPos = loading >= 0.5;
-                            const isHighNeg = loading <= -0.5;
-
-                            return (
-                              <td
-                                key={comp.component}
-                                className={`py-2.5 px-3 text-right tabular-nums ${
-                                  isHighPos
-                                    ? 'text-blue-700 font-bold bg-blue-50/40'
-                                    : isHighNeg
-                                    ? 'text-red-700 font-bold bg-red-50/40'
-                                    : 'text-slate-700'
-                                }`}
-                              >
-                                {loading >= 0 ? `+${loading.toFixed(3)}` : loading.toFixed(3)}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-500 space-y-1">
-                <p className="font-semibold text-slate-800">Macro Risk Interpretation:</p>
-                <p>
-                  • <strong className="text-slate-700">PC1 (Market Beta / Growth):</strong> Typically captures broad market equity co-movement, explaining 50–70% of multi-asset variation.
-                </p>
-                <p>
-                  • <strong className="text-slate-700">PC2 (Duration / Interest Rate Sensitivity):</strong> Typically aligns with fixed income duration (e.g. TLT, BND) vs equities.
-                </p>
-                <p>
-                  • <strong className="text-slate-700">PC3 (Real Assets / Inflation Hedge):</strong> Often reflects commodities, gold, and real estate sensitivity.
-                </p>
-              </div>
-            </CardContent>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Card>
         </div>
       )}
