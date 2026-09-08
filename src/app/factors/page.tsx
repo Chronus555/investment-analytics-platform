@@ -1,7 +1,15 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { runMultipleRegression, FactorRegressionResult } from '@/analytics/factors';
+import {
+  runMultipleRegression,
+  FactorRegressionResult,
+  computeRollingFactorRegression,
+  RollingFactorPoint,
+  computeFactorAttribution,
+  FactorAttributionResult,
+} from '@/analytics/factors';
+import { RollingFactorChart } from '@/components/charts/RollingFactorChart';
 import { runPCA, PCAResult } from '@/analytics/pca';
 import {
   extractUniverseFactorLoadings,
@@ -14,7 +22,7 @@ import { PcaScreeChart } from '@/components/charts/PcaScreeChart';
 import { FactorMatchBarChart } from '@/components/charts/FactorMatchBarChart';
 import { GrowthChart } from '@/components/charts/GrowthChart';
 import { PageHeader, Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, MetricCard } from '@/components/ui';
-import { TrendingUp, Layers, Sliders, CheckCircle2 } from 'lucide-react';
+import { TrendingUp, Layers, Sliders, CheckCircle2, History, PieChart } from 'lucide-react';
 import { formatPercent, formatRatio } from '@/utils/formatters';
 
 type FactorTab = 'regression' | 'matching' | 'pca';
@@ -25,6 +33,7 @@ export default function FactorsPage() {
   // --- Factor Regression State ---
   const [targetSymbol, setTargetSymbol] = useState('AVUV');
   const [modelType, setModelType] = useState<'capm' | 'ff3' | 'carhart4'>('ff3');
+  const [rollingWindow, setRollingWindow] = useState<number>(36);
 
   // --- Factor Matching (Discipline 5.2) State ---
   const [targetMkt, setTargetMkt] = useState(1.0);
@@ -111,6 +120,22 @@ export default function FactorsPage() {
   const regression = useMemo<FactorRegressionResult>(() => {
     return runMultipleRegression(yExcess, xMatrix, factorNames);
   }, [yExcess, xMatrix, factorNames]);
+
+  // Rolling Factor Regressions (Discipline 5.1 Style Drift)
+  const rollingRegression = useMemo<RollingFactorPoint[]>(() => {
+    return computeRollingFactorRegression(
+      CURATED_DATES,
+      yExcess,
+      xMatrix,
+      factorNames,
+      rollingWindow
+    );
+  }, [yExcess, xMatrix, factorNames, rollingWindow]);
+
+  // Factor Performance Return Attribution (Discipline 5.1)
+  const factorAttribution = useMemo<FactorAttributionResult>(() => {
+    return computeFactorAttribution(yExcess, xMatrix, factorNames, regression);
+  }, [yExcess, xMatrix, factorNames, regression]);
 
   // Run Factor Matching Solver (Discipline 5.2)
   const factorMatching = useMemo(() => {
@@ -360,6 +385,252 @@ export default function FactorsPage() {
                 </tbody>
               </table>
             </div>
+          </Card>
+
+          {/* Rolling Factor Loadings & Style Drift (Discipline 5.1) */}
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-blue-600" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  Rolling Factor Betas &amp; Manager Style Drift
+                </h3>
+              </div>
+              <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs">
+                <span className="text-[11px] font-medium text-slate-500 px-1.5 hidden sm:inline">
+                  Rolling Window:
+                </span>
+                {[24, 36, 60].map((w) => (
+                  <button
+                    key={w}
+                    type="button"
+                    onClick={() => setRollingWindow(w)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                      rollingWindow === w
+                        ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {w}M
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <RollingFactorChart
+              data={rollingRegression}
+              factorNames={factorNames}
+              windowMonths={rollingWindow}
+              height={320}
+            />
+          </div>
+
+          {/* Factor Performance Return Attribution Matrix */}
+          <Card className="shadow-xs border-slate-200 bg-white">
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <PieChart className="w-4 h-4 text-blue-600" />
+                  <CardTitle className="text-slate-900">
+                    Factor Performance Return Attribution Matrix
+                  </CardTitle>
+                </div>
+                <Badge variant="neutral" className="w-fit font-mono text-[11px]">
+                  OLS Return Decomposition
+                </Badge>
+              </div>
+              <CardDescription className="text-slate-500">
+                Decomposes historical excess return into annualized systematic factor premia, manager alpha skill, and residual noise
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Attribution KPI Breakdown Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                  <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
+                    Total Excess Return
+                  </span>
+                  <span className="text-lg font-bold font-mono text-slate-900 mt-0.5 block">
+                    {formatPercent(factorAttribution.totalExcessReturn, 2)}
+                  </span>
+                  <span className="text-[10px] text-slate-400">Annualized over cash ($R_f$)</span>
+                </div>
+
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                  <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
+                    Alpha Contribution
+                  </span>
+                  <span
+                    className={`text-lg font-bold font-mono mt-0.5 block ${
+                      factorAttribution.annualizedAlpha >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                    }`}
+                  >
+                    {factorAttribution.annualizedAlpha >= 0 ? '+' : ''}
+                    {formatPercent(factorAttribution.annualizedAlpha, 2)}
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    {formatPercent(factorAttribution.alphaPercentage, 1)} of total excess return
+                  </span>
+                </div>
+
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                  <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
+                    Factor Explained Return
+                  </span>
+                  <span className="text-lg font-bold font-mono text-slate-900 mt-0.5 block">
+                    {formatPercent(factorAttribution.totalFactorContribution, 2)}
+                  </span>
+                  <span className="text-[10px] text-slate-400">Systematic factor premia sum</span>
+                </div>
+
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                  <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
+                    Residual / Unexplained
+                  </span>
+                  <span className="text-lg font-bold font-mono text-slate-600 mt-0.5 block">
+                    {formatPercent(factorAttribution.residualReturn, 2)}
+                  </span>
+                  <span className="text-[10px] text-slate-400">Idiosyncratic tracking drift</span>
+                </div>
+              </div>
+
+              {/* Attribution Detailed Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-[11px] uppercase font-mono tracking-wider text-slate-500 bg-slate-50/80">
+                      <th className="py-2.5 px-4 font-semibold">Factor / Source</th>
+                      <th className="py-2.5 px-4 font-semibold">Factor Beta (β)</th>
+                      <th className="py-2.5 px-4 font-semibold">Factor Ann. Return</th>
+                      <th className="py-2.5 px-4 font-semibold">Ann. Contribution</th>
+                      <th className="py-2.5 px-4 font-semibold">% of Explained</th>
+                      <th className="py-2.5 px-4 font-semibold w-32">Relative Impact</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-mono text-[12px]">
+                    {/* Alpha Row */}
+                    <tr className="hover:bg-slate-50/70 transition-colors bg-blue-50/20">
+                      <td className="py-2.5 px-4 text-blue-900 font-semibold font-sans flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-pink-500 inline-block" />
+                        Manager Alpha (α)
+                      </td>
+                      <td className="py-2.5 px-4 text-slate-600">1.000</td>
+                      <td className="py-2.5 px-4 text-slate-600">
+                        {formatPercent(factorAttribution.annualizedAlpha, 2)}
+                      </td>
+                      <td className="py-2.5 px-4 font-bold text-pink-600">
+                        {factorAttribution.annualizedAlpha >= 0 ? '+' : ''}
+                        {formatPercent(factorAttribution.annualizedAlpha, 2)}
+                      </td>
+                      <td className="py-2.5 px-4 text-slate-700">
+                        {formatPercent(
+                          factorAttribution.annualizedAlpha /
+                            (Math.abs(factorAttribution.totalFactorContribution + factorAttribution.annualizedAlpha) || 1),
+                          1
+                        )}
+                      </td>
+                      <td className="py-2.5 px-4">
+                        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-pink-500 h-full rounded-full"
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.max(
+                                  5,
+                                  Math.abs(
+                                    factorAttribution.annualizedAlpha /
+                                      (Math.abs(factorAttribution.totalExcessReturn) || 1)
+                                  ) * 100
+                                )
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Factor Rows */}
+                    {factorAttribution.items.map((item) => {
+                      const isPositive = item.annualizedContribution >= 0;
+                      return (
+                        <tr key={item.factor} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-2.5 px-4 text-slate-900 font-semibold font-sans flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+                            {item.factor}
+                          </td>
+                          <td className="py-2.5 px-4 text-slate-800 font-bold">
+                            {formatRatio(item.beta, 3)}
+                          </td>
+                          <td className="py-2.5 px-4 text-slate-700">
+                            {formatPercent(item.factorAnnualizedReturn, 2)}
+                          </td>
+                          <td
+                            className={`py-2.5 px-4 font-bold ${
+                              isPositive ? 'text-emerald-600' : 'text-rose-600'
+                            }`}
+                          >
+                            {isPositive ? '+' : ''}
+                            {formatPercent(item.annualizedContribution, 2)}
+                          </td>
+                          <td className="py-2.5 px-4 text-slate-700">
+                            {formatPercent(item.percentageOfExplainedReturn, 1)}
+                          </td>
+                          <td className="py-2.5 px-4">
+                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${
+                                  isPositive ? 'bg-emerald-500' : 'bg-rose-500'
+                                }`}
+                                style={{
+                                  width: `${Math.min(
+                                    100,
+                                    Math.max(
+                                      5,
+                                      Math.abs(
+                                        item.annualizedContribution /
+                                          (Math.abs(factorAttribution.totalFactorContribution) || 1)
+                                      ) * 100
+                                    )
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Attribution Narrative Footer */}
+              <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-lg text-xs text-blue-900">
+                <span className="font-semibold block mb-0.5">Factor Exposure Interpretation:</span>
+                For <strong className="font-mono text-blue-950">{targetSymbol}</strong>,{' '}
+                {factorAttribution.annualizedAlpha > 0 ? (
+                  <>
+                    manager alpha contributed{' '}
+                    <strong className="font-mono">
+                      +{formatPercent(factorAttribution.annualizedAlpha, 2)}
+                    </strong>{' '}
+                    annually, representing{' '}
+                    <strong className="font-mono">
+                      {formatPercent(factorAttribution.alphaPercentage, 1)}
+                    </strong>{' '}
+                    of total historical excess returns over cash. The remainder is explained by systematic risk premia.
+                  </>
+                ) : (
+                  <>
+                    returns were predominantly driven by systematic factor exposures rather than idiosyncratic manager skill, with factor premia contributing{' '}
+                    <strong className="font-mono">
+                      {formatPercent(factorAttribution.totalFactorContribution, 2)}
+                    </strong>{' '}
+                    annually.
+                  </>
+                )}
+              </div>
+            </CardContent>
           </Card>
         </div>
       )}

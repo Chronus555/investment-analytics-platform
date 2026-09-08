@@ -211,3 +211,146 @@ function approximateStudentTPValue(t: number, df: number): number {
   const pOneTail = 0.5 * erfcApprox(z / Math.SQRT2);
   return Math.min(1.0, Math.max(0.0, 2 * pOneTail));
 }
+
+export interface RollingFactorPoint {
+  date: string;
+  alpha: number; // Monthly alpha
+  annualizedAlpha: number; // Annualized alpha
+  betas: Record<string, number>;
+  rSquared: number;
+  residualVolatility: number;
+}
+
+/**
+ * Computes rolling multi-factor OLS regressions across rolling historical lookback windows.
+ * Detects time-varying factor loadings, manager style drift, and alpha decay.
+ */
+export function computeRollingFactorRegression(
+  dates: string[],
+  y: number[],
+  xMatrix: number[][],
+  factorNames: string[],
+  windowMonths: number = 36
+): RollingFactorPoint[] {
+  if (dates.length !== y.length || y.length !== xMatrix.length) {
+    throw new Error('Mismatched series lengths in rolling factor regression');
+  }
+
+  const results: RollingFactorPoint[] = [];
+  const minRequired = factorNames.length + 2;
+  const effectiveWindow = Math.max(windowMonths, minRequired);
+
+  for (let i = effectiveWindow - 1; i < y.length; i++) {
+    const startIdx = i - effectiveWindow + 1;
+    const windowY = y.slice(startIdx, i + 1);
+    const windowX = xMatrix.slice(startIdx, i + 1);
+    const date = dates[i];
+
+    try {
+      const reg = runMultipleRegression(windowY, windowX, factorNames);
+      results.push({
+        date,
+        alpha: reg.alpha,
+        annualizedAlpha: reg.annualizedAlpha,
+        betas: reg.betas,
+        rSquared: reg.rSquared,
+        residualVolatility: reg.residualVolatility,
+      });
+    } catch {
+      // Skip window in singular or degenerate cases
+      continue;
+    }
+  }
+
+  return results;
+}
+
+export interface FactorAttributionItem {
+  factor: string;
+  beta: number;
+  factorAnnualizedReturn: number;
+  annualizedContribution: number; // beta * factorAnnualizedReturn
+  percentageOfExplainedReturn: number;
+}
+
+export interface FactorAttributionResult {
+  totalExcessReturn: number; // Annualized average excess return of asset
+  annualizedAlpha: number; // Alpha contribution
+  totalFactorContribution: number; // Sum of factor contributions
+  residualReturn: number; // totalExcessReturn - (annualizedAlpha + totalFactorContribution)
+  alphaPercentage: number; // annualizedAlpha / totalExcessReturn
+  items: FactorAttributionItem[];
+}
+
+/**
+ * Deconstructs asset excess return into Alpha and systematic factor return contributions:
+ * E[R_i - R_f] = Alpha + sum(beta_k * E[R_factor,k]) + Residual
+ */
+export function computeFactorAttribution(
+  y: number[], // Asset excess returns
+  xMatrix: number[][], // Factor excess returns
+  factorNames: string[],
+  regression: FactorRegressionResult
+): FactorAttributionResult {
+  const n = y.length;
+  if (n === 0) {
+    return {
+      totalExcessReturn: 0,
+      annualizedAlpha: 0,
+      totalFactorContribution: 0,
+      residualReturn: 0,
+      alphaPercentage: 0,
+      items: [],
+    };
+  }
+
+  // Calculate annualized average excess return for asset
+  const meanY = calculateMean(y);
+  const totalExcessReturn = meanY * 12;
+  const annualizedAlpha = regression.annualizedAlpha;
+
+  // Factor annualized returns
+  const k = factorNames.length;
+  const items: FactorAttributionItem[] = [];
+  let totalFactorContribution = 0;
+
+  for (let j = 0; j < k; j++) {
+    const factorName = factorNames[j];
+    const factorSeries = xMatrix.map((row) => row[j]);
+    const factorMean = calculateMean(factorSeries);
+    const factorAnnReturn = factorMean * 12;
+    const beta = regression.betas[factorName] ?? 0;
+    const contribution = beta * factorAnnReturn;
+
+    totalFactorContribution += contribution;
+
+    items.push({
+      factor: factorName,
+      beta,
+      factorAnnualizedReturn: factorAnnReturn,
+      annualizedContribution: contribution,
+      percentageOfExplainedReturn: 0,
+    });
+  }
+
+  // Calculate percentage of explained return for each factor
+  const totalExplained = annualizedAlpha + totalFactorContribution;
+  const absExplained = Math.abs(totalExplained) > 1e-6 ? Math.abs(totalExplained) : 1;
+
+  items.forEach((item) => {
+    item.percentageOfExplainedReturn = item.annualizedContribution / absExplained;
+  });
+
+  const residualReturn = totalExcessReturn - totalExplained;
+  const alphaPercentage = Math.abs(totalExcessReturn) > 1e-6 ? annualizedAlpha / totalExcessReturn : 0;
+
+  return {
+    totalExcessReturn,
+    annualizedAlpha,
+    totalFactorContribution,
+    residualReturn,
+    alphaPercentage,
+    items,
+  };
+}
+
