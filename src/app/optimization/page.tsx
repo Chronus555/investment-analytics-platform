@@ -26,6 +26,10 @@ import { Badge } from '@/components/ui/Badge';
 import { formatPercent, formatRatio } from '@/utils/formatters';
 import { PieChart, Sliders, Plus, Trash2, ArrowUpRight, ArrowDownRight, Sparkles } from 'lucide-react';
 import { MetricCard } from '@/components/ui/MetricCard';
+import { solveHierarchicalRiskParity, HRPResult } from '@/analytics/hrp';
+import { HrpDendrogramChart } from '@/components/charts/HrpDendrogramChart';
+import { QuasiDiagHeatmap } from '@/components/charts/QuasiDiagHeatmap';
+import { GitFork, Network } from 'lucide-react';
 import { runWalkForwardOptimization, WalkForwardModel, WalkForwardResult } from '@/analytics/walkForwardOptimization';
 import { CURATED_DATES } from '@/data/curatedData';
 import { WalkForwardGrowthChart } from '@/components/charts/WalkForwardGrowthChart';
@@ -57,7 +61,7 @@ const DEFAULT_MARKET_CAP_WEIGHTS: Record<string, number> = {
 };
 
 export default function OptimizationPage() {
-  const [activeMode, setActiveMode] = useState<'frontier' | 'black_litterman' | 'walk_forward'>('frontier');
+  const [activeMode, setActiveMode] = useState<'frontier' | 'hrp' | 'black_litterman' | 'walk_forward'>('frontier');
   const [selectedLandmarkModel, setSelectedLandmarkModel] = useState<string>('max_sharpe');
 
   // Walk-Forward State
@@ -419,6 +423,12 @@ export default function OptimizationPage() {
     );
   }, [validSymbols, marketCapWeights, covMatrix, views, tau, riskAversion]);
 
+  // Hierarchical Risk Parity (HRP) Solver
+  const hrpResult = useMemo<HRPResult | null>(() => {
+    if (validSymbols.length < 2) return null;
+    return solveHierarchicalRiskParity(validSymbols, covMatrix, expectedReturns, riskFreeRate);
+  }, [validSymbols, covMatrix, expectedReturns, riskFreeRate]);
+
 
   // Walk-Forward Optimization Execution
   const wfResult = useMemo<WalkForwardResult | null>(() => {
@@ -482,6 +492,17 @@ export default function OptimizationPage() {
           </button>
           <button
             type="button"
+            onClick={() => setActiveMode('hrp')}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition cursor-pointer ${
+              activeMode === 'hrp'
+                ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Hierarchical Risk Parity (HRP)
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveMode('black_litterman')}
             className={`px-3 py-1.5 rounded-md text-xs font-medium transition cursor-pointer ${
               activeMode === 'black_litterman'
@@ -507,7 +528,7 @@ export default function OptimizationPage() {
         <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-slate-500">
           <span>{validSymbols.length} ASSETS</span>
           <span>•</span>
-          <span>{activeMode === 'frontier' ? 'MEAN-VARIANCE' : activeMode === 'black_litterman' ? 'BAYESIAN PRIORS' : 'ROLLING OUT-OF-SAMPLE'}</span>
+          <span>{activeMode === 'frontier' ? 'MEAN-VARIANCE' : activeMode === 'hrp' ? 'MACHINE LEARNING TREE' : activeMode === 'black_litterman' ? 'BAYESIAN PRIORS' : 'ROLLING OUT-OF-SAMPLE'}</span>
         </div>
       </div>
 
@@ -876,6 +897,156 @@ export default function OptimizationPage() {
               </table>
             </div>
           </Card>
+        </div>
+      )}
+
+
+      {/* ------------------------------------------------------------- */}
+      {/* TAB: HIERARCHICAL RISK PARITY (HRP) STUDIO                    */}
+      {/* ------------------------------------------------------------- */}
+      {activeMode === 'hrp' && hrpResult && (
+        <div className="space-y-6">
+          {/* Top HRP Metrics Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <MetricCard
+              label="Expected Return"
+              value={formatPercent(hrpResult.expectedReturn)}
+              subtext="Ann. Compound"
+              accentColor="#16a34a"
+            />
+            <MetricCard
+              label="Annualized Volatility"
+              value={formatPercent(hrpResult.volatility)}
+              subtext="σ · √12"
+              accentColor="#2563eb"
+            />
+            <MetricCard
+              label="Sharpe Ratio"
+              value={formatRatio(hrpResult.sharpeRatio, 2)}
+              subtext={`Rf = ${formatPercent(riskFreeRate, 1)}`}
+              accentColor="#4f46e5"
+            />
+            <MetricCard
+              label="Diversification Ratio"
+              value={formatRatio(hrpResult.diversificationRatio, 2)}
+              subtext="Choueifaty DR(w)"
+              accentColor="#0284c7"
+            />
+            <MetricCard
+              label="Tree Clusters"
+              value={`${validSymbols.length} Assets`}
+              subtext="Agglomerative Tree"
+              accentColor="#9333ea"
+            />
+            <MetricCard
+              label="Inversion-Free"
+              value="O(N log N)"
+              subtext="Numerically Stable"
+              accentColor="#059669"
+            />
+          </div>
+
+          {/* Dendrogram Chart */}
+          <HrpDendrogramChart tree={hrpResult.tree} height={320} />
+
+          {/* Side-by-Side Quasi-Diagonalized Correlation Heatmap */}
+          <QuasiDiagHeatmap
+            original={hrpResult.originalCorrMatrix}
+            quasi={hrpResult.quasiCorrMatrix}
+          />
+
+          {/* Allocation Comparison Table: HRP vs Benchmark Solvers */}
+          <Card className="shadow-xs border-slate-200 bg-white">
+            <CardHeader className="pb-3 border-b border-slate-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-indigo-600" />
+                    <span>Asset Allocation Comparison: HRP vs Benchmark Solvers</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-500 mt-0.5">
+                    Compare machine learning Hierarchical Risk Parity weights against traditional naive and quadratic programming models
+                  </CardDescription>
+                </div>
+                <Badge variant="neutral" className="w-fit text-[11px] font-mono">
+                  Long-Only Simplex Σw = 100%
+                </Badge>
+              </div>
+            </CardHeader>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse font-sans">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-mono text-[11px] uppercase tracking-wider">
+                    <th className="py-2.5 px-4 font-semibold">Asset Ticker</th>
+                    <th className="py-2.5 px-4 font-semibold text-right text-indigo-700 bg-indigo-50/50">HRP Weight</th>
+                    <th className="py-2.5 px-4 font-semibold text-right">Equal Weight (1/N)</th>
+                    <th className="py-2.5 px-4 font-semibold text-right">Inverse Volatility</th>
+                    <th className="py-2.5 px-4 font-semibold text-right">Max Sharpe (Tangency)</th>
+                    <th className="py-2.5 px-4 font-semibold text-right">Equal Risk Parity (ERC)</th>
+                    <th className="py-2.5 px-4 font-semibold">Allocation Bar</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-mono">
+                  {validSymbols.map((sym) => {
+                    const hrpW = hrpResult.weights[sym] || 0;
+                    const eqW = hrpResult.comparisonWeights.equalWeight[sym] || 0;
+                    const invW = hrpResult.comparisonWeights.inverseVol[sym] || 0;
+                    const tangencyW = maxSharpe.weights[sym] || 0;
+                    const ercW = riskParity.weights[sym] || 0;
+
+                    return (
+                      <tr key={sym} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-2.5 px-4 font-bold text-slate-900">
+                          {sym}
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-bold text-indigo-600 bg-indigo-50/30">
+                          {(hrpW * 100).toFixed(1)}%
+                        </td>
+                        <td className="py-2.5 px-4 text-right text-slate-600">
+                          {(eqW * 100).toFixed(1)}%
+                        </td>
+                        <td className="py-2.5 px-4 text-right text-slate-600">
+                          {(invW * 100).toFixed(1)}%
+                        </td>
+                        <td className="py-2.5 px-4 text-right text-slate-600">
+                          {(tangencyW * 100).toFixed(1)}%
+                        </td>
+                        <td className="py-2.5 px-4 text-right text-slate-600">
+                          {(ercW * 100).toFixed(1)}%
+                        </td>
+                        <td className="py-2.5 px-4 w-48">
+                          <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex">
+                            <div
+                              className="bg-indigo-600 h-full rounded-full transition-all duration-300"
+                              style={{ width: `${Math.min(100, hrpW * 100)}%` }}
+                              title={`HRP: ${(hrpW * 100).toFixed(1)}%`}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Educational Callout: Why HRP Outperforms Traditional Markowitz */}
+          <div className="bg-linear-to-r from-indigo-50/70 via-blue-50/40 to-slate-50 border border-indigo-200/80 rounded-xl p-4 sm:p-5 text-xs text-slate-700 space-y-2">
+            <div className="flex items-center gap-2 font-semibold text-indigo-900 text-sm">
+              <Sparkles className="w-4 h-4 text-indigo-600" />
+              <span>Machine Learning & Graph Theory: Why Hierarchical Risk Parity Works</span>
+            </div>
+            <p className="leading-relaxed">
+              Traditional Markowitz Modern Portfolio Theory relies on quadratic programming to invert the covariance matrix (<strong>Σ⁻¹</strong>). In real financial markets with correlated or collinear assets, small estimation noise in returns or covariance causes the condition number of the matrix to explode, transforming Markowitz into an <em>&ldquo;error maximizer&rdquo;</em> that assigns extreme, unstable weights to the noisier assets.
+            </p>
+            <p className="leading-relaxed">
+              <strong>Hierarchical Risk Parity (HRP)</strong>, developed by Marcos López de Prado, completely avoids matrix inversion through three graph-theoretic steps:
+              <strong> (1) Tree Clustering</strong> groups co-moving assets into a nested dendrogram;
+              <strong> (2) Quasi-Diagonalization</strong> reorders the covariance matrix so similar assets lie adjacent on the diagonal; and
+              <strong> (3) Recursive Bisection</strong> allocates weights top-down using inverse cluster variance. This guarantees positive, non-singular, robust weights that routinely achieve superior risk-adjusted out-of-sample performance.
+            </p>
+          </div>
         </div>
       )}
 
