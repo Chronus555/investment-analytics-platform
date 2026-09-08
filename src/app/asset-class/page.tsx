@@ -32,6 +32,21 @@ import {
   BarChart3,
   Award,
 } from 'lucide-react';
+import { MacroScenarioBuilder, PortfolioStressTarget } from '@/components/stress/MacroScenarioBuilder';
+
+const ASSET_TO_ETF_PROXY: Record<string, string> = {
+  US_LARGE_CAP: 'SPY',
+  US_SMALL_CAP: 'AVUV',
+  INTL_DEVELOPED: 'VEA',
+  EMERGING_MARKETS: 'VWO',
+  TOTAL_BOND: 'BND',
+  LONG_TREASURY: 'TLT',
+  INTERM_TREASURY: 'IEF',
+  CASH: 'CASH',
+  GOLD: 'GLD',
+  COMMODITIES: 'DBC',
+  REITS: 'VNQ',
+};
 
 export default function AssetClassPage() {
   // Active editing portfolio tab (0 = Portfolio 1, 1 = Portfolio 2, 2 = Portfolio 3)
@@ -75,6 +90,19 @@ export default function AssetClassPage() {
   const [endYear, setEndYear] = useState<number>(2025);
   const [rebalancing, setRebalancing] = useState<'annual' | 'none'>('annual');
   const [benchmarkId, setBenchmarkId] = useState<string>('classic_60_40');
+  const [stressMode, setStressMode] = useState<'macro' | 'historical'>('macro');
+
+  const macroStressPortfolios: PortfolioStressTarget[] = useMemo(() => {
+    return portfolios.map((p) => ({
+      id: p.id,
+      name: p.name,
+      color: p.color || '#2563EB',
+      assets: Object.entries(p.weights).map(([assetId, weight]) => ({
+        symbol: ASSET_TO_ETF_PROXY[assetId] || assetId,
+        weight: (weight as number) || 0,
+      })),
+    }));
+  }, [portfolios]);
 
   // Active editing portfolio
   const curP = portfolios[activePortfolioTab];
@@ -555,72 +583,121 @@ export default function AssetClassPage() {
         </Card>
       )}
 
-      {/* HISTORICAL CRISIS STRESS TESTING TABLE */}
+      {/* MACRO STRESS TESTING SECTION */}
       {primaryResult && (
-        <Card className="shadow-xs border-slate-200 bg-white">
-          <CardHeader className="pb-3 border-b border-slate-100">
-            <div className="flex items-center justify-between">
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-2">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-emerald-600" />
               <div>
-                <CardTitle className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span>Historical Crisis Stress-Testing Matrix</span>
-                </CardTitle>
-                <CardDescription className="text-xs text-slate-500 mt-0.5">
-                  Stress-testing {primaryResult.name} resilience across 7 landmark financial crises and market crashes
-                </CardDescription>
+                <h3 className="text-sm font-semibold text-slate-900">
+                  Macro Stress-Testing &amp; Scenario Studio
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Evaluate asset class portfolios under real-time multi-factor shocks and historical crises
+                </p>
               </div>
-              <Badge variant="neutral">7 Historical Regimes</Badge>
             </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-mono border-collapse">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="py-2.5 px-3 font-semibold text-slate-700">Crisis Event</th>
-                    <th className="py-2.5 px-3 font-semibold text-slate-700">Period</th>
-                    <th className="py-2.5 px-3 font-semibold text-slate-700">Macro Dynamic</th>
-                    <th className="py-2.5 px-3 font-semibold text-slate-700 text-right">Nominal Return</th>
-                    <th className="py-2.5 px-3 font-semibold text-slate-700 text-right">Real Return</th>
-                    <th className="py-2.5 px-3 font-semibold text-slate-700 text-right">Max Drawdown</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {primaryResult.crises.map((cr) => (
-                    <tr key={cr.crisisId} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-2.5 px-3 font-bold text-slate-900 font-sans">
-                        {cr.name}
-                      </td>
-                      <td className="py-2.5 px-3 text-slate-500 font-semibold">
-                        {cr.period}
-                      </td>
-                      <td className="py-2.5 px-3 text-slate-600 font-sans text-[11px] max-w-xs truncate" title={cr.description}>
-                        {cr.description}
-                      </td>
-                      <td
-                        className={`py-2.5 px-3 text-right font-bold ${
-                          cr.periodReturn >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                        }`}
-                      >
-                        {cr.periodReturn >= 0 ? `+${formatPercent(cr.periodReturn, 1)}` : formatPercent(cr.periodReturn, 1)}
-                      </td>
-                      <td
-                        className={`py-2.5 px-3 text-right font-medium ${
-                          cr.realReturn >= 0 ? 'text-blue-600' : 'text-rose-600'
-                        }`}
-                      >
-                        {cr.realReturn >= 0 ? `+${formatPercent(cr.realReturn, 1)}` : formatPercent(cr.realReturn, 1)}
-                      </td>
-                      <td className="py-2.5 px-3 text-right text-rose-600 font-semibold">
-                        {formatPercent(cr.maxDrawdown, 1)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+              <button
+                type="button"
+                onClick={() => setStressMode('macro')}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
+                  stressMode === 'macro'
+                    ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                ⚡ Multi-Factor Macro Engine
+              </button>
+              <button
+                type="button"
+                onClick={() => setStressMode('historical')}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
+                  stressMode === 'historical'
+                    ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                📅 Historical Crisis Matrix
+              </button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          {stressMode === 'macro' ? (
+            <MacroScenarioBuilder
+              portfolios={macroStressPortfolios}
+              initialBalance={10000}
+              benchmarkSymbol="SPY"
+            />
+          ) : (
+            <Card className="shadow-xs border-slate-200 bg-white">
+              <CardHeader className="pb-3 border-b border-slate-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <span>Historical Crisis Stress-Testing Matrix</span>
+                    </CardTitle>
+                    <CardDescription className="text-xs text-slate-500 mt-0.5">
+                      Stress-testing {primaryResult.name} resilience across 7 landmark financial crises and market crashes
+                    </CardDescription>
+                  </div>
+                  <Badge variant="neutral">7 Historical Regimes</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs font-mono border-collapse">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="py-2.5 px-3 font-semibold text-slate-700">Crisis Event</th>
+                        <th className="py-2.5 px-3 font-semibold text-slate-700">Period</th>
+                        <th className="py-2.5 px-3 font-semibold text-slate-700">Macro Dynamic</th>
+                        <th className="py-2.5 px-3 font-semibold text-slate-700 text-right">Nominal Return</th>
+                        <th className="py-2.5 px-3 font-semibold text-slate-700 text-right">Real Return</th>
+                        <th className="py-2.5 px-3 font-semibold text-slate-700 text-right">Max Drawdown</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {primaryResult.crises.map((cr) => (
+                        <tr key={cr.crisisId} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-2.5 px-3 font-bold text-slate-900 font-sans">
+                            {cr.name}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-500 font-semibold">
+                            {cr.period}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600 font-sans text-[11px] max-w-xs truncate" title={cr.description}>
+                            {cr.description}
+                          </td>
+                          <td
+                            className={`py-2.5 px-3 text-right font-bold ${
+                              cr.periodReturn >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                            }`}
+                          >
+                            {cr.periodReturn >= 0 ? `+${formatPercent(cr.periodReturn, 1)}` : formatPercent(cr.periodReturn, 1)}
+                          </td>
+                          <td
+                            className={`py-2.5 px-3 text-right font-medium ${
+                              cr.realReturn >= 0 ? 'text-blue-600' : 'text-rose-600'
+                            }`}
+                          >
+                            {cr.realReturn >= 0 ? `+${formatPercent(cr.realReturn, 1)}` : formatPercent(cr.realReturn, 1)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right text-rose-600 font-semibold">
+                            {formatPercent(cr.maxDrawdown, 1)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
     </div>
   );

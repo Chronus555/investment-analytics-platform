@@ -45,7 +45,8 @@ import { calculateXIRR, analyzeCashFlowTiming, CashFlowEntry, CashFlowTimingAnal
 import { TaxGrowthChart } from '@/components/charts/TaxGrowthChart';
 import { runTaxLossHarvestingSimulation, TLHResult, DEFAULT_PROXY_PAIRS, HarvestEvent } from '@/analytics/taxLossHarvesting';
 import { TlhGrowthChart } from '@/components/charts/TlhGrowthChart';
-import { Scissors, RefreshCw, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Scissors, RefreshCw, ArrowRight, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { MacroScenarioBuilder, PortfolioStressTarget } from '@/components/stress/MacroScenarioBuilder';
 import { formatCurrency, formatPercent, formatRatio } from '@/utils/formatters';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
@@ -118,8 +119,9 @@ export default function BacktestPage() {
   const [rebalanceThreshold, setRebalanceThreshold] = useState(0.05); // 5% bands
   const [benchmarkSymbol, setBenchmarkSymbol] = useState('SPY');
 
-  // View Mode: Standard vs Tax-Aware vs Cash Flow Timing (XIRR)
-  const [viewMode, setViewMode] = useState<'standard' | 'tax' | 'tlh' | 'cashflow'>('standard');
+  // View Mode: Standard vs Tax-Aware vs TLH vs Macro vs Cash Flow Timing (XIRR)
+  const [viewMode, setViewMode] = useState<'standard' | 'tax' | 'tlh' | 'macro' | 'cashflow'>('standard');
+  const [stressView, setStressView] = useState<'macro' | 'historical'>('macro');
 
   // Tax-Aware Settings State
   const [isTaxable, setIsTaxable] = useState(true);
@@ -371,6 +373,27 @@ export default function BacktestPage() {
     returns: benchmarkReturns,
   };
 
+  const macroStressPortfolios: PortfolioStressTarget[] = useMemo(() => [
+    {
+      id: 'port1',
+      name: port1Name,
+      color: '#2563eb',
+      assets: port1Assets.map((a) => ({ symbol: a.symbol, weight: a.weight / 100 })),
+    },
+    {
+      id: 'port2',
+      name: port2Name,
+      color: '#16a34a',
+      assets: port2Assets.map((a) => ({ symbol: a.symbol, weight: a.weight / 100 })),
+    },
+    {
+      id: 'port3',
+      name: port3Name,
+      color: '#d97706',
+      assets: port3Assets.map((a) => ({ symbol: a.symbol, weight: a.weight / 100 })),
+    },
+  ], [port1Name, port1Assets, port2Name, port2Assets, port3Name, port3Assets]);
+
   return (
     <div className="space-y-8">
       {/* Page Header */}
@@ -452,6 +475,20 @@ export default function BacktestPage() {
           <Scissors className="w-3.5 h-3.5 text-emerald-600" />
           Tax-Loss Harvesting &amp; Direct Indexing
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-mono">30D Wash Sale</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setViewMode('macro')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+            viewMode === 'macro'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+          }`}
+        >
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+          Macro Scenario Stress Studio
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-mono">Factor Shocks</span>
         </button>
         <button
           type="button"
@@ -743,12 +780,53 @@ export default function BacktestPage() {
             benchmarkReturns={benchmarkReturns}
           />
 
-          {/* Historical Crisis Stress Testing Lab */}
-          <StressTestingCard
-            dates={CURATED_DATES}
-            portfolios={stressPortfolios}
-            benchmark={benchmarkStressInput}
-          />
+          {/* Macro Scenario Stress Testing Studio */}
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                <span className="text-sm font-semibold text-slate-800">Portfolio Stress Testing Lab</span>
+              </div>
+              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setStressView('macro')}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
+                    stressView === 'macro'
+                      ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  ⚡ Multi-Factor Macro Engine
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStressView('historical')}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
+                    stressView === 'historical'
+                      ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  📅 Historical Crisis Replay
+                </button>
+              </div>
+            </div>
+
+            {stressView === 'macro' ? (
+              <MacroScenarioBuilder
+                portfolios={macroStressPortfolios}
+                initialBalance={initialBalance}
+                benchmarkSymbol={benchmarkSymbol}
+              />
+            ) : (
+              <StressTestingCard
+                dates={CURATED_DATES}
+                portfolios={stressPortfolios}
+                benchmark={benchmarkStressInput}
+              />
+            )}
+          </div>
 
           {/* Summary Metrics Multi-Column Table */}
           <SummaryMetricsCard portfolios={comparisonPortfolios} />
@@ -1468,6 +1546,15 @@ export default function BacktestPage() {
             </div>
           </Card>
         </div>
+      )}
+
+      {/* Macro Scenario Stress Testing Studio View */}
+      {viewMode === 'macro' && (
+        <MacroScenarioBuilder
+          portfolios={macroStressPortfolios}
+          initialBalance={initialBalance}
+          benchmarkSymbol={benchmarkSymbol}
+        />
       )}
 
       {/* Cash Flow Timing & XIRR Lab View */}
